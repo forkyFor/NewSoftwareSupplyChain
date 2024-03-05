@@ -6,3 +6,4 @@ ganache.txt
 .vscode
 local/
 accounts/accounts.txt
+middleware/node_modules
