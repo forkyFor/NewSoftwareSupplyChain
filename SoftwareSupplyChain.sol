@@ -80,6 +80,8 @@ contract SoftwareSupplyChain {
         uint256 mean
     );
 
+    event LogData(string text);
+    event DeveloperAdded(address indexed id, string email);
     event Bought(uint256 amount);
     event Sold(uint256 amount);
 
@@ -93,29 +95,30 @@ contract SoftwareSupplyChain {
     }
 
     function addDeveloper(string memory _email) public {
-        require(
-            developers[msg.sender].id != msg.sender,
-            "You are already registered as a developer"
-        );
-        require(
-            emails[_email] == address(0),
-            "A developer with the same email aready exists"
-        );
-        require(bytes(_email).length != 0, "Insert a valid email");
-        require(
-            sctContract.balanceOf(msg.sender) >= 3000,
-            "You need 3000 SCT to register as a developer"
-        );
-        Developer storage dev = developers[msg.sender];
-        dev.id = msg.sender;
-        dev.email = _email;
-        emails[_email] = msg.sender;
-        dev.registration_date = block.timestamp;
-        dev.last_update = block.timestamp;
-        devs_num++;
-        sctContract.transferFrom(msg.sender, address(this), 3000);
-        fees_paid += 3000;
-    }
+    require(
+        developers[msg.sender].id != msg.sender,
+        "You are already registered as a developer"
+    );
+    require(
+        emails[_email] == address(0),
+        "A developer with the same email aready exists"
+    );
+    require(bytes(_email).length != 0, "Insert a valid email");
+    require(
+        sctContract.balanceOf(msg.sender) >= 3000,
+        "You need 3000 SCT to register as a developer"
+    );
+    Developer storage dev = developers[msg.sender];
+    dev.id = msg.sender;    
+    dev.email = _email;
+    emails[_email] = msg.sender;
+    dev.registration_date = block.timestamp;
+    dev.last_update = block.timestamp;
+    devs_num++;
+    sctContract.transferFrom(msg.sender, address(this), 3000);
+    fees_paid += 3000;
+    emit DeveloperAdded(msg.sender, _email);
+}
 
     function createGroup(string memory group_name) public {
         require(
@@ -612,6 +615,8 @@ contract SoftwareSupplyChain {
         );
     }
 
+
+/* **/
     function getDeveloperAddressFromEmail(
         string memory email
     ) public view returns (address) {
