@@ -1,6 +1,7 @@
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, "../../../.env") });
 const Web3 = require('web3');
+const db = require('./db');
 
 const pathFromEnv = process.env.PATH_ABI_JSON; // './abi.json'
 const contractABI = require(path.resolve(__dirname, "../../..",pathFromEnv));
@@ -17,7 +18,7 @@ softwareSupplyChain.events.LogData({
    console.log(subscriptionId);
 })
 .on('data', function(event){
-   console.log(event); // same results as the optional callback above
+   console.log(event);
 })
 .on('changed', function(event){
    // remove event from local database
@@ -34,7 +35,18 @@ softwareSupplyChain.events.DeveloperAdded({
    console.log(subscriptionId);
 })
 .on('data', function(event){
-   console.log(event); // same results as the optional callback above
+   console.log("blockchain_address" + event.returnValues.id); // same results as the optional callback above
+   console.log("email" + event.returnValues.email); // same results as the optional callback above
+
+   const blockchain_address = event.returnValues.id;
+   const email = event.returnValues.email;
+
+   const queryText = 'INSERT INTO users(blockchain_address, email) VALUES($1, $2)';
+   const queryParams = [blockchain_address, email];
+
+   db.query(queryText, queryParams)
+      .then(res => console.log('Developer added to DB:', blockchain_address))
+      .catch(e => console.error('Error adding developer to DB:', e.stack));
 })
 .on('changed', function(event){
     console.log(event); // remove event from local database
