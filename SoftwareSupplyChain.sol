@@ -7,7 +7,6 @@ import "./ERC20/SupplyChainToken.sol";
 contract SoftwareSupplyChain {
     struct Developer {
         address id;
-        string email;
         uint256 reliability;
         uint256 registration_date;
         uint256 last_update;
@@ -69,7 +68,6 @@ contract SoftwareSupplyChain {
     mapping(string => DeveloperGroup) private dev_groups;
     mapping(string => Project) private projects;
     mapping(string => Library) private libraries;
-    mapping(string => address) private emails;
 
     event LibraryInfo(
         string version,
@@ -84,6 +82,7 @@ contract SoftwareSupplyChain {
     event DeveloperAdded(address indexed id, string email);
     event Bought(uint256 amount);
     event Sold(uint256 amount);
+    event verifyExistingEmail(address indexed requestId, string addressMail);
 
     SupplyChainToken private sctContract;
 
@@ -95,30 +94,29 @@ contract SoftwareSupplyChain {
     }
 
     function addDeveloper(string memory _email) public {
-    require(
-        developers[msg.sender].id != msg.sender,
-        "You are already registered as a developer"
-    );
-    require(
-        emails[_email] == address(0),
-        "A developer with the same email aready exists"
-    );
-    require(bytes(_email).length != 0, "Insert a valid email");
-    require(
-        sctContract.balanceOf(msg.sender) >= 3000,
-        "You need 3000 SCT to register as a developer"
-    );
-    Developer storage dev = developers[msg.sender];
-    dev.id = msg.sender;    
-    dev.email = _email;
-    emails[_email] = msg.sender;
-    dev.registration_date = block.timestamp;
-    dev.last_update = block.timestamp;
-    devs_num++;
-    sctContract.transferFrom(msg.sender, address(this), 3000);
-    fees_paid += 3000;
-    emit DeveloperAdded(msg.sender, _email);
-}
+        require(
+            developers[msg.sender].id != msg.sender,
+            "You are already registered as a developer"
+        );
+        emit verifyExistingEmail(msg.sender, _email);
+    }
+
+    function responseVerifyExistingEmail(bool found, string memory _email) public {
+        require(!found, "A developer with the same email already exists");
+        require(bytes(_email).length != 0, "Insert a valid email");
+       require(
+            sctContract.balanceOf(msg.sender) >= 3000,
+            "You need 3000 SCT to register as a developer"
+        );
+        Developer storage dev = developers[msg.sender];
+        dev.id = msg.sender;    
+        dev.registration_date = block.timestamp;
+        dev.last_update = block.timestamp;
+        devs_num++;
+        sctContract.transferFrom(msg.sender, address(this), 3000);
+        fees_paid += 3000;
+        emit DeveloperAdded(msg.sender, _email);
+    }
 
     function createGroup(string memory group_name) public {
         require(
@@ -500,7 +498,7 @@ contract SoftwareSupplyChain {
         return sctContract.balanceOf(token_owner);
     }
 
-    function getDeveloperInformation(
+    /* function getDeveloperInformation(
         address addr
     ) public view returns (string memory, uint256, uint256) {
         return (
@@ -508,7 +506,7 @@ contract SoftwareSupplyChain {
             developers[addr].reliability,
             developers[addr].registration_date
         );
-    }
+    } */
 
     function getGroups(address addr) public view returns (string[] memory) {
         return developers[addr].groups;
@@ -616,12 +614,12 @@ contract SoftwareSupplyChain {
     }
 
 
-/* **/
-    function getDeveloperAddressFromEmail(
+
+    /* function getDeveloperAddressFromEmail(
         string memory email
     ) public view returns (address) {
         return emails[email];
-    }
+    }  */
 
     function computeReliability(
         string memory CID

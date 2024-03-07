@@ -54,3 +54,28 @@ softwareSupplyChain.events.DeveloperAdded({
 .on('error', function(error, receipt) { // If the transaction was rejected by the network with a receipt, the second parameter will be the receipt.
     console.log(error); // remove event from local database
 });
+
+
+softwareSupplyChain.events.verifyExistingEmail({
+   fromBlock: 'latest'
+}).on('data', function(event) {
+   
+   const requestId = event.returnValues.requestId;
+   console.log("request id " + requestId);
+   const email = event.returnValues.addressMail;
+   const queryText = 'SELECT email FROM users WHERE email = $1';
+   const queryParams = [email];
+
+   db.query(queryText, queryParams)
+   .then(res => {
+         const sendOptions = { from: requestId};
+         console.log("request id " + requestId);
+         let found = res.rows.length > 0;
+        
+         softwareSupplyChain.methods.responseVerifyExistingEmail(found,email).send(sendOptions)
+               .then(receipt => console.log('Transaction receipt:', receipt))
+               .catch(e => console.error('Error sending data back to smart contract:', e));
+      })
+      .catch(e => console.error('Error adding developer to DB:', e.stack));
+   
+});
