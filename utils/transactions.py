@@ -21,6 +21,15 @@ class Transactions:
         self.contract = contract
         self.token_contract = token_contract
         self.ipfs = ipfs
+        
+    def removeDeveloper(self):
+        try:
+            self.approveTokenFee(3000)
+            self.createTransaction(self.contract.functions.removeDeveloper)
+            print(f"User removed\n")
+        except exceptions.SolidityError as error:
+            self.approveTokenFee(0)
+            print(str(error)[70:], end="\n\n")
 
     def addDeveloper(self):
         email: str = input("Insert your email: ")

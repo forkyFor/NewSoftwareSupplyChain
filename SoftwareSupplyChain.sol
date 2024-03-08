@@ -83,6 +83,7 @@ contract SoftwareSupplyChain {
     event Bought(uint256 amount);
     event Sold(uint256 amount);
     event verifyExistingEmail(address indexed requestId, string addressMail);
+    event DeveloperRemoved(address indexed developerAddress);
 
     SupplyChainToken private sctContract;
 
@@ -91,6 +92,19 @@ contract SoftwareSupplyChain {
         contract_owner = msg.sender;
         max_reliability = max_rel;
         reliability_cost = rel_cost;
+    }
+
+    // Funzione per confermare la rimozione
+    function removeDeveloper() public {
+        require(developers[msg.sender].id != address(0), "Developer does not exist");
+
+        require(
+            sctContract.balanceOf(msg.sender) >= 3000,
+            "You need 3000 SCT to register as a developer"
+        ); 
+
+        developers[msg.sender].id = address(0);
+        emit DeveloperRemoved(msg.sender);
     }
 
     function addDeveloper(string memory _email) public {

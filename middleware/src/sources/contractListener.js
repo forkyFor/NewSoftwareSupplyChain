@@ -28,6 +28,29 @@ softwareSupplyChain.events.LogData({
 });
 
 
+softwareSupplyChain.events.DeveloperRemoved({
+   fromBlock: 'latest'
+}).on('data', async (event) => { 
+   const userAddress = event.returnValues.userAddress;
+   try {
+       console.log("developerAddress" + event.returnValues.developerAddress); // same results as the optional callback above
+  
+       const developerAddress = event.returnValues.developerAddress;
+    
+       try {
+          const queryText = 'DELETE FROM users WHERE blockchain_address = $1';
+          const queryParams = [developerAddress];
+          await db.query(queryText, queryParams);
+          console.log(`User ${developerAddress} removed from the database.`);
+      } catch (error) {
+          console.error(`Error removing user ${userAddress} from the database:`, error);
+      }
+   } catch (error) {
+       console.error(`Error removing user ${userAddress} from the database:`, error);
+   }
+}).on('error', console.error);
+
+
 softwareSupplyChain.events.DeveloperAdded({
    fromBlock: 'latest'
 }, function(error, event){ console.log(error); console.log(event); })

@@ -64,10 +64,13 @@ if __name__ == "__main__":
                 27 - Buy tokens
                 28 - Buy reliability
                 29 - Get the number of tokens of a developer
+                30 - Remove user
                 q - Exit\n"""
         )
         if cmd == "1":
             transactions.addDeveloper()
+        if cmd == "30":
+            transactions.removeDeveloper()
         elif cmd == "2":
             transactions.createGroup()
         elif cmd == "3":
