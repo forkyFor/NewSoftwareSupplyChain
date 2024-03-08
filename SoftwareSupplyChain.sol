@@ -512,15 +512,14 @@ contract SoftwareSupplyChain {
         return sctContract.balanceOf(token_owner);
     }
 
-    /* function getDeveloperInformation(
+    function getDeveloperInformation(
         address addr
-    ) public view returns (string memory, uint256, uint256) {
+    ) public view returns (uint256, uint256) {
         return (
-            developers[addr].email,
             developers[addr].reliability,
             developers[addr].registration_date
         );
-    } */
+    }
 
     function getGroups(address addr) public view returns (string[] memory) {
         return developers[addr].groups;
@@ -626,14 +625,6 @@ contract SoftwareSupplyChain {
             reliability_mean
         );
     }
-
-
-
-    /* function getDeveloperAddressFromEmail(
-        string memory email
-    ) public view returns (address) {
-        return emails[email];
-    }  */
 
     function computeReliability(
         string memory CID

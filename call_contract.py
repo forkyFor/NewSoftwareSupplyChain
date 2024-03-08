@@ -40,7 +40,7 @@ if __name__ == "__main__":
                 3 - Create a project
                 4 - Add a version of a library to a project
                 5 - Get information about a developer
-                6 - Get the address of a developer from the email
+                6 - Remove user
                 7 - Get the number of developers
                 8 - Get the number of groups
                 9 - Get the number of projects
@@ -64,13 +64,10 @@ if __name__ == "__main__":
                 27 - Buy tokens
                 28 - Buy reliability
                 29 - Get the number of tokens of a developer
-                30 - Remove user
                 q - Exit\n"""
         )
         if cmd == "1":
             transactions.addDeveloper()
-        if cmd == "30":
-            transactions.removeDeveloper()
         elif cmd == "2":
             transactions.createGroup()
         elif cmd == "3":
@@ -87,12 +84,7 @@ if __name__ == "__main__":
             except:
                 print("Insert a valid address\n")
         elif cmd == "6":
-            e = input("Insert the email of the developer: ")
-            try:
-                a = contract.functions.getDeveloperAddressFromEmail(e).call()
-                print(f"The address of the developers is {a}\n")
-            except:
-                print("Insert a valid email\n")
+            transactions.removeDeveloper()
         elif cmd == "7":
             n = contract.functions.devs_num().call()
             if n == 1:
