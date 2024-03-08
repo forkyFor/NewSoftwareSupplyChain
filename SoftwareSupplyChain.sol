@@ -114,10 +114,12 @@ contract SoftwareSupplyChain {
         ); 
 
         developers[msg.sender].id = address(0);
+        consentGiven[msg.sender] = false;
         emit DeveloperRemoved(msg.sender);
     }
 
     function addDeveloper(string memory _email) public {
+        require(consentGiven[msg.sender], "User did not give consent for data processing");
         require(
             developers[msg.sender].id != msg.sender,
             "You are already registered as a developer"
@@ -207,6 +209,7 @@ contract SoftwareSupplyChain {
     }
 
     function requestGroupAccess(string memory group_name) public {
+        require(consentGiven[msg.sender], "User did not give consent for data processing");
         require(
             developers[msg.sender].id == msg.sender,
             "You must register as a developer before you join a group"
@@ -430,6 +433,7 @@ contract SoftwareSupplyChain {
             developers[msg.sender].reported[developer] == 0,
             "The developers was already reported"
         );
+        require(consentGiven[developer], "User doesn't give consent for data processing");
         developers[developer].reliability -= 10;
         total_developers_reliability -= 10;
         developers[developer].report_num++;
@@ -525,6 +529,7 @@ contract SoftwareSupplyChain {
     function getDeveloperInformation(
         address addr
     ) public view returns (uint256, uint256) {
+        require(consentGiven[addr], "User did not give consent for data processing");
         return (
             developers[addr].reliability,
             developers[addr].registration_date
@@ -538,6 +543,7 @@ contract SoftwareSupplyChain {
     function getAdminGroups(
         address addr
     ) public view returns (string[] memory) {
+        require(consentGiven[addr], "User did not give consent for data processing");
         return developers[addr].groups_adm;
     }
 
@@ -550,6 +556,7 @@ contract SoftwareSupplyChain {
     function getGroupAccessRequests(
         address addr
     ) public view returns (string[] memory) {
+        require(consentGiven[addr], "User did not give consent for data processing");
         return developers[addr].group_access_requests;
     }
 
