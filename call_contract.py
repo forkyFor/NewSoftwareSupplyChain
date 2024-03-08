@@ -64,6 +64,7 @@ if __name__ == "__main__":
                 27 - Buy tokens
                 28 - Buy reliability
                 29 - Get the number of tokens of a developer
+                30 - Confirmation/withdrawal of the processing of personal data as indicated by GDPR
                 q - Exit\n"""
         )
         if cmd == "1":
@@ -193,8 +194,7 @@ if __name__ == "__main__":
             transactions.changeAdmin()
         elif cmd == "27":
             transactions.buyTokens()
-        elif cmd == "28":
-            transactions.buyReliability()
+        
         elif cmd == "29":
             addr = input("Insert the address of the developer: ")
             try:
@@ -202,6 +202,8 @@ if __name__ == "__main__":
                 print(balance)
             except:
                 print("Insert a valid address\n")
+        elif cmd == "30":
+            transactions.registerConsent()
         elif cmd == "q" or cmd == "Q":
             break
         else:

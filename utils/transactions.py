@@ -30,6 +30,15 @@ class Transactions:
         except exceptions.SolidityError as error:
             self.approveTokenFee(0)
             print(str(error)[70:], end="\n\n")
+            
+    def registerConsent(self):
+        consent: str = input("Do you confirm consent? [Y/N] ")
+        print("Confirming...")
+        try:
+            self.createTransaction(self.contract.functions.registerConsent, consent)
+            print(f"Confirm registred")
+        except exceptions.SolidityError as error:
+            print(str(error)[70:], end="\n\n")
 
     def addDeveloper(self):
         email: str = input("Insert your email: ")

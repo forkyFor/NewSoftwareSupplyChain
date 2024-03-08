@@ -68,6 +68,7 @@ contract SoftwareSupplyChain {
     mapping(string => DeveloperGroup) private dev_groups;
     mapping(string => Project) private projects;
     mapping(string => Library) private libraries;
+    mapping(address => bool) public consentGiven;
 
     event LibraryInfo(
         string version,
@@ -92,6 +93,15 @@ contract SoftwareSupplyChain {
         contract_owner = msg.sender;
         max_reliability = max_rel;
         reliability_cost = rel_cost;
+    }
+
+    // Funzione per registrare il consenso
+    function registerConsent(string memory _consent) public {
+        if (keccak256(abi.encodePacked(_consent)) == keccak256(abi.encodePacked("Y"))) {
+            consentGiven[msg.sender] = true;
+        } else {
+            consentGiven[msg.sender] = false;
+        }
     }
 
     // Funzione per confermare la rimozione
