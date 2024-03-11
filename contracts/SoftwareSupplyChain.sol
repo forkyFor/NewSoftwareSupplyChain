@@ -3,54 +3,11 @@
 pragma solidity ^0.8.0;
 
 import "./ERC20/SupplyChainToken.sol";
+import "./contracts/StructDefinitions.sol";
+import "./contracts/EventDefinitions.sol";
 
-contract SoftwareSupplyChain {
-    struct Developer {
-        address id;
-        uint256 reliability;
-        uint256 registration_date;
-        uint256 last_update;
-        uint256 report_num;
-        uint256 interaction_points;
-        uint256 reliability_bought;
-        uint256 last_reliability_buy;
-        string[] groups;
-        mapping(string => uint256) groups_map;
-        string[] groups_adm;
-        mapping(string => uint256) groups_adm_map;
-        string[] group_access_requests;
-        mapping(string => uint256) group_access_requests_map;
-        mapping(address => uint256) voted;
-        mapping(address => uint256) reported;
-    }
-
-    struct DeveloperGroup {
-        string name;
-        address admin;
-        address[] group_developers;
-        mapping(address => uint256) group_developers_map;
-        address[] to_be_approved;
-        mapping(address => uint256) to_be_approved_map;
-        string[] group_projects;
-    }
-
-    struct Project {
-        string name;
-        address admin;
-        string[] library_versions;
-        mapping(string => string) library_versions_map;
-        string last_version;
-        string group;
-    }
-
-    struct Library {
-        string CID;
-        string version;
-        string project;
-        uint256 reliability;
-        address[] developed_by;
-        string[] dependencies;
-    }
+contract SoftwareSupplyChain is StructDefinitions, EventDefinitions{
+    
 
     address public contract_owner;
     uint256 public devs_num;
@@ -58,6 +15,7 @@ contract SoftwareSupplyChain {
     uint256 public projects_num;
     uint256 public libraries_num;
     uint256 public reliability_cost;
+    string[] public maliciousLibrariesCIDs;
 
     uint256 private fees_paid;
     uint256 private total_developers_reliability;
@@ -71,21 +29,27 @@ contract SoftwareSupplyChain {
     mapping(address => bool) public consentGiven;
     mapping(string => address) public libraryMalicious;
 
-    event LibraryInfo(
-        string version,
-        string project,
-        string[] dependencies,
-        uint256 reliability,
-        string level,
-        uint256 mean
-    );
+    //modifiers
+    modifier controlBalance() {
+        require(
+            sctContract.balanceOf(msg.sender) >= 3000,
+            "You need 3000 SCT to register as a developer"
+        ); 
+        _;
+    }
 
-    event LogData(string text);
-    event DeveloperAdded(address indexed id, string email);
-    event Bought(uint256 amount);
-    event Sold(uint256 amount);
-    event verifyExistingEmail(address indexed requestId, string addressMail);
-    event DeveloperRemoved(address indexed developerAddress);
+    modifier checkReliabilityUser() {
+        require(
+            developers[msg.sender].reliability >= (total_developers_reliability / devs_num),
+            "You're not authorized to execute this operation"
+        );
+        _;
+    }
+
+    modifier controlConsent() {
+        require(consentGiven[msg.sender], "User did not give consent for data processing");
+        _;
+    }
 
     SupplyChainToken private sctContract;
 
@@ -106,21 +70,16 @@ contract SoftwareSupplyChain {
     }
 
     // Funzione per confermare la rimozione
-    function removeDeveloper() public {
+    function removeDeveloper() public controlBalance{
         require(developers[msg.sender].id != address(0), "Developer does not exist");
 
-        require(
-            sctContract.balanceOf(msg.sender) >= 3000,
-            "You need 3000 SCT to register as a developer"
-        ); 
 
         developers[msg.sender].id = address(0);
         consentGiven[msg.sender] = false;
         emit DeveloperRemoved(msg.sender);
     }
 
-    function addDeveloper(string memory _email) public {
-        require(consentGiven[msg.sender], "User did not give consent for data processing");
+    function addDeveloper(string memory _email) public controlConsent{
         require(
             developers[msg.sender].id != msg.sender,
             "You are already registered as a developer"
@@ -128,13 +87,10 @@ contract SoftwareSupplyChain {
         emit verifyExistingEmail(msg.sender, _email);
     }
 
-    function responseVerifyExistingEmail(bool found, string memory _email) public {
+    function responseVerifyExistingEmail(bool found, string memory _email) public controlBalance{
         require(!found, "A developer with the same email already exists");
         require(bytes(_email).length != 0, "Insert a valid email");
-       require(
-            sctContract.balanceOf(msg.sender) >= 3000,
-            "You need 3000 SCT to register as a developer"
-        );
+
         Developer storage dev = developers[msg.sender];
         dev.id = msg.sender;    
         dev.registration_date = block.timestamp;
@@ -145,14 +101,10 @@ contract SoftwareSupplyChain {
         emit DeveloperAdded(msg.sender, _email);
     }
 
-    function createGroup(string memory group_name) public {
+    function createGroup(string memory group_name) public checkReliabilityUser{
         require(
             developers[msg.sender].id == msg.sender,
             "You must register as a developer before you create a group"
-        );
-        require(
-            developers[msg.sender].reliability >= (total_developers_reliability / devs_num),
-            "You're not authorized to execute this operation"
         );
         require(bytes(group_name).length != 0, "The name can't be empty");
         require(
@@ -182,11 +134,7 @@ contract SoftwareSupplyChain {
     function createProject(
         string memory group_name,
         string memory project_name
-    ) public {
-        require(
-            developers[msg.sender].reliability >= (total_developers_reliability / devs_num),
-            "You're not authorized to execute this operation"
-        );
+    ) public  checkReliabilityUser{
         require(
             bytes(dev_groups[group_name].name).length != 0,
             "Insert a valid group name"
@@ -222,17 +170,46 @@ contract SoftwareSupplyChain {
         require(libraryMalicious[_CID] == address(0), "Library already reported");
 
         libraryMalicious[_CID] = msg.sender;
+        maliciousLibrariesCIDs.push(_CID); 
     }
 
-    function requestGroupAccess(string memory group_name) public {
-        require(consentGiven[msg.sender], "User did not give consent for data processing");
+    function getMaliciousLibraries() public view returns (string[] memory) {
+        return maliciousLibrariesCIDs;
+    }
+
+    function resolveLibraryReport(string memory _CID, bool _isMalicious) public {
+    require(dev_groups[projects[libraries[_CID].project].group].admin == msg.sender, "Only admin can resolve reports");
+    require(libraryMalicious[_CID] != address(0), "Library not reported");
+
+        address reporter = libraryMalicious[_CID];
+        if (_isMalicious) {
+            // Decrease the reliability of the library and encrease that of the reporter
+            libraries[_CID].reliability -= 10;
+            developers[reporter].reliability += 10;
+            sctContract.transfer(reporter, 100); 
+        } else {
+            // Decrease the reliability of the developer
+            developers[reporter].reliability -= 10;
+        }
+
+        // remove libraries
+        libraryMalicious[_CID] = address(0);
+
+        int256 index = -1;
+        for (uint256 i = 0; i < maliciousLibrariesCIDs.length; i++) {
+            if (keccak256(abi.encodePacked(maliciousLibrariesCIDs[i])) == keccak256(abi.encodePacked(_CID))) {
+                index = int256(i);
+                break;
+            }
+        }
+        maliciousLibrariesCIDs[uint256(index)] = maliciousLibrariesCIDs[maliciousLibrariesCIDs.length - 1];
+        maliciousLibrariesCIDs.pop();
+    }
+
+    function requestGroupAccess(string memory group_name) public controlConsent checkReliabilityUser{
         require(
             developers[msg.sender].id == msg.sender,
             "You must register as a developer before you join a group"
-        );
-        require(
-            developers[msg.sender].reliability >= (total_developers_reliability / devs_num),
-            "You're not authorized to execute this operation"
         );
         require(
             developers[msg.sender].groups_map[group_name] == 0,
@@ -256,14 +233,10 @@ contract SoftwareSupplyChain {
         ] = developers[msg.sender].group_access_requests.length;
     }
 
-    function acceptGroupRequest(string memory group_name, address addr) public {
+    function acceptGroupRequest(string memory group_name, address addr) public checkReliabilityUser{
         require(
             bytes(dev_groups[group_name].name).length != 0,
             "Insert a valid group name"
-        );
-        require(
-            developers[msg.sender].reliability >= (total_developers_reliability / devs_num),
-            "You're not authorized to execute this operation"
         );
         require(
             dev_groups[group_name].admin == msg.sender,
@@ -339,14 +312,10 @@ contract SoftwareSupplyChain {
     function removeDeveloperFromGroup(
         string memory group_name,
         address addr
-    ) public {
+    ) public checkReliabilityUser{
         require(
             bytes(dev_groups[group_name].name).length != 0,
             "Insert a valid group name"
-        );
-        require(
-            developers[msg.sender].reliability >= (total_developers_reliability / devs_num),
-            "You're not authorized to execute this operation"
         );
         require(
             developers[addr].groups_map[group_name] != 0,
@@ -375,14 +344,10 @@ contract SoftwareSupplyChain {
         string memory CID,
         string memory version,
         string[] memory dependencies
-    ) public {
+    ) public checkReliabilityUser{
         require(
             projects[project_name].admin == msg.sender,
             "You must be the admin of the project to publish a library"
-        );
-        require(
-            developers[msg.sender].reliability >= (total_developers_reliability / devs_num),
-            "You're not authorized to execute this operation"
         );
         require(
             bytes(projects[project_name].name).length != 0,
@@ -433,14 +398,10 @@ contract SoftwareSupplyChain {
         fees_paid += 1000;
     }
 
-    function voteDeveloper(address developer) public {
+    function voteDeveloper(address developer) public checkReliabilityUser{
         require(
             developers[msg.sender].id == msg.sender,
             "You must register as a developer before you vote another developer"
-        );
-        require(
-            developers[msg.sender].reliability >= (total_developers_reliability / devs_num),
-            "You're not authorized to execute this operation"
         );
         require(msg.sender != developer, "You can't vote for yourself");
         require(
@@ -455,7 +416,7 @@ contract SoftwareSupplyChain {
         developers[msg.sender].voted[developer] = block.timestamp;
     }
 
-    function reportDeveloper(address developer) public {
+    function reportDeveloper(address developer) public checkReliabilityUser{
         require(
             developers[msg.sender].id == msg.sender,
             "You must register as a developer before you report another developer"
@@ -464,10 +425,6 @@ contract SoftwareSupplyChain {
         require(
             developers[developer].id == developer,
             "Insert a valid developer address"
-        );
-        require(
-            developers[msg.sender].reliability >= (total_developers_reliability / devs_num),
-            "You're not authorized to execute this operation"
         );
         require(
             developers[msg.sender].reported[developer] == 0,
@@ -491,14 +448,10 @@ contract SoftwareSupplyChain {
         developers[msg.sender].last_update += rel * 432000;
     }
 
-    function changeAdmin(address new_admin, string memory group_name) public {
+    function changeAdmin(address new_admin, string memory group_name) public checkReliabilityUser{
         require(
             dev_groups[group_name].admin == msg.sender,
             "You must be the admin of the group to appoint another admin in your place"
-        );
-        require(
-            developers[msg.sender].reliability >= (total_developers_reliability / devs_num),
-            "You're not authorized to execute this operation"
         );
         require(
             developers[new_admin].id == new_admin,
@@ -572,65 +525,38 @@ contract SoftwareSupplyChain {
 
     function getDeveloperInformation(
         address addr
-    ) public view returns (uint256, uint256) {
-        require(consentGiven[addr], "User did not give consent for data processing");
-        require(
-            developers[msg.sender].reliability >= (total_developers_reliability / devs_num),
-            "You're not authorized to execute this operation"
-        );
+    ) public controlConsent checkReliabilityUser view returns (uint256, uint256) {
         return (
             developers[addr].reliability,
             developers[addr].registration_date
         );
     }
 
-    function getGroups(address addr) public view returns (string[] memory) {
-        require(
-            developers[msg.sender].reliability >= (total_developers_reliability / devs_num),
-            "You're not authorized to execute this operation"
-        );
+    function getGroups(address addr) public checkReliabilityUser view returns (string[] memory) {
         return developers[addr].groups;
     }
 
     function getAdminGroups(
         address addr
-    ) public view returns (string[] memory) {
-        require(
-            developers[msg.sender].reliability >= (total_developers_reliability / devs_num),
-            "You're not authorized to execute this operation"
-        );
-        require(consentGiven[addr], "User did not give consent for data processing");
+    ) public controlConsent checkReliabilityUser view returns (string[] memory) {
         return developers[addr].groups_adm;
     }
 
     function getGroupProjects(
         string memory group_name
-    ) public view returns (string[] memory) {
-        require(
-            developers[msg.sender].reliability >= (total_developers_reliability / devs_num),
-            "You're not authorized to execute this operation"
-        );
+    ) public checkReliabilityUser view returns (string[] memory) {
         return dev_groups[group_name].group_projects;
     }
 
     function getGroupAccessRequests(
         address addr
-    ) public view returns (string[] memory) {
-        require(
-            developers[msg.sender].reliability >= (total_developers_reliability / devs_num),
-            "You're not authorized to execute this operation"
-        );
-        require(consentGiven[addr], "User did not give consent for data processing");
+    ) public controlConsent checkReliabilityUser view returns (string[] memory) {
         return developers[addr].group_access_requests;
     }
 
     function getToBeApproved(
         string memory group_name
-    ) public view returns (address[] memory) {
-        require(
-            developers[msg.sender].reliability >= (total_developers_reliability / devs_num),
-            "You're not authorized to execute this operation"
-        );
+    ) public checkReliabilityUser view returns (address[] memory) {
         return dev_groups[group_name].to_be_approved;
     }
 
@@ -649,7 +575,7 @@ contract SoftwareSupplyChain {
     function getLibraryInformation(
         string memory CID
     )
-        public
+        public checkReliabilityUser
         view
         returns (
             string memory,
@@ -658,10 +584,6 @@ contract SoftwareSupplyChain {
             uint256 reliability
         )
     {
-        require(
-            developers[msg.sender].reliability >= (total_developers_reliability / devs_num),
-            "You're not authorized to execute this operation"
-        );
         return (
             libraries[CID].version,
             libraries[CID].project,
@@ -670,12 +592,8 @@ contract SoftwareSupplyChain {
         );
     }
 
-    function getLibraryInformationWithLevel(string memory CID) public {
+    function getLibraryInformationWithLevel(string memory CID) public checkReliabilityUser{
 
-        require(
-            developers[msg.sender].reliability >= (total_developers_reliability / devs_num),
-            "You're not authorized to execute this operation"
-        );
         
         uint256 rel = computeReliability(CID);
         uint256 rel_diff = rel - libraries[CID].reliability;

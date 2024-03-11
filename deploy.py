@@ -73,6 +73,14 @@ def deploy_contract(name: str, path: str, *params):
     tx_receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
     return abi, tx_receipt.contractAddress
 
+"""Deploy the EventDefinitions contract"""
+address = deploy_contract(
+    "EventDefinitions", "/contracts")
+
+"""Deploy the StructDefinitions contract"""
+address = deploy_contract(
+    "StructDefinitions", "/contracts")
+print(f"StructDefinitions contract address: {address}")
 
 """Deploy the SupplyChainToken contract"""
 token_abi, token_address = deploy_contract("SupplyChainToken", "/ERC20", initial_tokens)
@@ -84,7 +92,7 @@ with open("token_abi.json", "w") as file:
 
 """Deploy the SoftwareSupplyChain contract"""
 abi, address = deploy_contract(
-    "SoftwareSupplyChain", "", token_address, max_reliability, reliability_cost
+    "SoftwareSupplyChain", "/contracts", token_address, max_reliability, reliability_cost
 )
 print(f"SoftwareSupplyChain contract address: {address}")
 set_key(dotenv_file, "CONTRACT_ADDRESS", address)
