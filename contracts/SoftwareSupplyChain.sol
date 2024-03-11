@@ -5,8 +5,9 @@ pragma solidity ^0.8.0;
 import "./ERC20/SupplyChainToken.sol";
 import "./contracts/StructDefinitions.sol";
 import "./contracts/EventDefinitions.sol";
+import "./contracts/Utility.sol";
 
-contract SoftwareSupplyChain is StructDefinitions, EventDefinitions{
+contract SoftwareSupplyChain is StructDefinitions, EventDefinitions, Utility{
     
 
     address public contract_owner;
@@ -661,29 +662,6 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions{
         return sum / len;
     }
 
-    function removeStringFromArray(
-        uint256 index,
-        string[] storage array
-    ) private {
-        if (index >= array.length) return;
-
-        for (uint256 i = index; i < array.length - 1; i++) {
-            array[i] = array[i + 1];
-        }
-        array.pop();
-    }
-
-    function removeAddrFromArray(
-        uint256 index,
-        address[] storage array
-    ) private {
-        if (index >= array.length) return;
-
-        for (uint256 i = index; i < array.length - 1; i++) {
-            array[i] = array[i + 1];
-        }
-        array.pop();
-    }
 
     function addReliabilityAndTokens(address dev, uint256 reliability) private {
         developers[dev].reliability += reliability;

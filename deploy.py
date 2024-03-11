@@ -77,6 +77,11 @@ def deploy_contract(name: str, path: str, *params):
 address = deploy_contract(
     "EventDefinitions", "/contracts")
 
+
+"""Deploy the Utility contract"""
+address = deploy_contract(
+    "Utility", "/contracts")
+
 """Deploy the StructDefinitions contract"""
 address = deploy_contract(
     "StructDefinitions", "/contracts")
