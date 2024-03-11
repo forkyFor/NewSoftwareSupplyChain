@@ -69,6 +69,7 @@ contract SoftwareSupplyChain {
     mapping(string => Project) private projects;
     mapping(string => Library) private libraries;
     mapping(address => bool) public consentGiven;
+    mapping(string => address) public libraryMalicious;
 
     event LibraryInfo(
         string version,
@@ -214,6 +215,13 @@ contract SoftwareSupplyChain {
         projects_num++;
         sctContract.transferFrom(msg.sender, address(this), 2000);
         fees_paid += 2000;
+    }
+
+    function reportLibraryMalicious(string memory _CID) public {
+        require(bytes(libraries[_CID].CID).length != 0, "Library does not exist");
+        require(libraryMalicious[_CID] == address(0), "Library already reported");
+
+        libraryMalicious[_CID] = msg.sender;
     }
 
     function requestGroupAccess(string memory group_name) public {

@@ -65,6 +65,7 @@ if __name__ == "__main__":
                 28 - Buy reliability
                 29 - Get the number of tokens of a developer
                 30 - Confirmation/withdrawal of the processing of personal data as indicated by GDPR
+                31 - Report Library Malicious
                 q - Exit\n"""
         )
         if cmd == "1":
@@ -204,6 +205,8 @@ if __name__ == "__main__":
                 print("Insert a valid address\n")
         elif cmd == "30":
             transactions.registerConsent()
+        elif cmd == "31":
+            transactions.reportLibraryMalicious()
         elif cmd == "q" or cmd == "Q":
             break
         else:

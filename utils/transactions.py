@@ -77,6 +77,35 @@ class Transactions:
         except exceptions.SolidityError as error:
             self.approveTokenFee(0)
             print(str(error)[70:], end="\n\n")
+            
+    def report(self):
+        group_name: str = input(
+            "Insert the name of the group in which you want to create a project: "
+        )
+        project_name: str = input("Insert the project name: ")
+        print("Creating a project...")
+        try:
+            self.approveTokenFee(2000)
+            self.createTransaction(
+                self.contract.functions.createProject, group_name, project_name
+            )
+            print(f"Project {project_name} created\n")
+        except exceptions.SolidityError as error:
+            self.approveTokenFee(0)
+            print(str(error)[70:], end="\n\n")
+            
+    def reportLibraryMalicious(self):
+        CID: str = input("Insert the CID of library:")
+        print("Processing the request...")
+        try:
+            self.createTransaction(
+                self.contract.functions.reportLibraryMalicious, CID
+            )
+            print(f"The request to report the library with the {CID} has been registered\n")
+        except exceptions.SolidityError as error:
+            print(str(error)[70:], end="\n\n")
+   
+    
 
     def requestGroupAccess(self):
         group_name: str = input("Insert the name of the group that you want to join: ")
