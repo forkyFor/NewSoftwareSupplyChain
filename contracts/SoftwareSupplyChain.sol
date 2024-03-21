@@ -3,13 +3,14 @@
 pragma solidity ^0.8.0;
 
 import "./ERC20/SupplyChainToken.sol";
-import "./contracts/StructDefinitions.sol";
 import "./contracts/EventDefinitions.sol";
-import "./contracts/Utility.sol";
+import "./contracts/DeveloperManager.sol";
+import "./contracts/GroupManager.sol";
+import "./contracts/ProjectManager.sol";
+import "./contracts/LibraryManager.sol";
 
-contract SoftwareSupplyChain is StructDefinitions, EventDefinitions, Utility{
-    
 
+contract SoftwareSupplyChain is StructDefinitions, EventDefinitions{
     address public contract_owner;
     uint256 public devs_num;
     uint256 public groups_num;
@@ -18,17 +19,40 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions, Utility{
     uint256 public reliability_cost;
     string[] public maliciousLibrariesCIDs;
 
-    uint256 private fees_paid;
-    uint256 private total_developers_reliability;
-    uint256 private total_libraries_reliability;
-    uint256 private max_reliability;
-
-    mapping(address => Developer) private developers;
-    mapping(string => DeveloperGroup) private dev_groups;
+    uint256 public fees_paid;
+    uint256 public total_developers_reliability;
+    uint256 public total_libraries_reliability;
+    uint256 public max_reliability;
+    
+    mapping(string => DeveloperGroup) public dev_groups;
     mapping(string => Project) private projects;
     mapping(string => Library) private libraries;
     mapping(address => bool) public consentGiven;
     mapping(string => address) public libraryMalicious;
+
+    function removeStringFromArray(
+        uint256 index,
+        string[] storage array
+    ) internal {
+        if (index >= array.length) return;
+
+        for (uint256 i = index; i < array.length - 1; i++) {
+            array[i] = array[i + 1];
+        }
+        array.pop();
+    }
+
+    function removeAddrFromArray(
+        uint256 index,
+        address[] storage array
+    ) internal {
+        if (index >= array.length) return;
+
+        for (uint256 i = index; i < array.length - 1; i++) {
+            array[i] = array[i + 1];
+        }
+        array.pop();
+    }
 
     //modifiers
     modifier controlBalance() {
@@ -40,8 +64,10 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions, Utility{
     }
 
     modifier checkReliabilityUser() {
+        uint256 developerReliability = developerManager.getDeveloperReliability(msg.sender);
+
         require(
-            developers[msg.sender].reliability >= (total_developers_reliability / devs_num),
+            developerReliability >= (total_developers_reliability / devs_num),
             "You're not authorized to execute this operation"
         );
         _;
@@ -52,13 +78,23 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions, Utility{
         _;
     }
 
+    DeveloperManager private developerManager;
+    EventDefinitions private eventDefinitions;
+
     SupplyChainToken private sctContract;
 
-    constructor(address sctAddress, uint256 max_rel, uint256 rel_cost) {
-        sctContract = SupplyChainToken(sctAddress);
-        contract_owner = msg.sender;
-        max_reliability = max_rel;
-        reliability_cost = rel_cost;
+    constructor(address sctAddress, uint256 max_rel, uint256 rel_cost, 
+        address _developerManager,/*  address _groupManager, 
+        address _projectManager, address _libraryManager, */ address _eventManager) {
+            developerManager = DeveloperManager(_developerManager);
+            /* groupManager = GroupManager(_groupManager);
+            projectManager = ProjectManager(_projectManager);
+            libraryManager = LibraryManager(_libraryManager); */
+            eventDefinitions = EventDefinitions(_eventManager);
+            sctContract = SupplyChainToken(sctAddress);
+            contract_owner = msg.sender;
+            max_reliability = max_rel;
+            reliability_cost = rel_cost;
     }
 
     // Funzione per registrare il consenso
@@ -72,17 +108,18 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions, Utility{
 
     // Funzione per confermare la rimozione
     function removeDeveloper() public controlBalance{
-        require(developers[msg.sender].id != address(0), "Developer does not exist");
+        address developersID = developerManager.getDeveloperID(msg.sender);
+        require(developersID != address(0), "Developer does not exist");
 
 
-        developers[msg.sender].id = address(0);
+        developerManager.setDeveloperID(msg.sender, address(0));
         consentGiven[msg.sender] = false;
         emit DeveloperRemoved(msg.sender);
     }
 
     function addDeveloper(string memory _email) public controlConsent{
         require(
-            developers[msg.sender].id != msg.sender,
+            developerManager.getDeveloperID(msg.sender) != msg.sender,
             "You are already registered as a developer"
         );
         emit verifyExistingEmail(msg.sender, _email);
@@ -92,10 +129,7 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions, Utility{
         require(!found, "A developer with the same email already exists");
         require(bytes(_email).length != 0, "Insert a valid email");
 
-        Developer storage dev = developers[msg.sender];
-        dev.id = msg.sender;    
-        dev.registration_date = block.timestamp;
-        dev.last_update = block.timestamp;
+        developerManager.newDeveloper(msg.sender);
         devs_num++;
         sctContract.transferFrom(msg.sender, address(this), 3000);
         fees_paid += 3000;
@@ -104,7 +138,7 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions, Utility{
 
     function createGroup(string memory group_name) public checkReliabilityUser{
         require(
-            developers[msg.sender].id == msg.sender,
+            developerManager.getDeveloperID(msg.sender) == msg.sender,
             "You must register as a developer before you create a group"
         );
         require(bytes(group_name).length != 0, "The name can't be empty");
@@ -117,10 +151,7 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions, Utility{
             "You need 2000 SCT to create a group"
         );
         DeveloperGroup storage dev_group = dev_groups[group_name];
-        developers[msg.sender].groups.push(group_name);
-        developers[msg.sender].groups_map[group_name] = block.timestamp;
-        developers[msg.sender].groups_adm.push(group_name);
-        developers[msg.sender].groups_adm_map[group_name] = block.timestamp;
+        developerManager.addGroupsDeveloperID(msg.sender, group_name);
         dev_group.name = group_name;
         dev_group.admin = msg.sender;
         dev_group.group_developers.push(msg.sender);
@@ -186,11 +217,11 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions, Utility{
         if (_isMalicious) {
             // Decrease the reliability of the library and encrease that of the reporter
             libraries[_CID].reliability -= 10;
-            developers[reporter].reliability += 10;
+            developerManager.setDeveloperReliability(reporter, 10, true);
             sctContract.transfer(reporter, 100); 
         } else {
             // Decrease the reliability of the developer
-            developers[reporter].reliability -= 10;
+            developerManager.setDeveloperReliability(reporter, 10, false);
         }
 
         // remove libraries
@@ -207,17 +238,18 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions, Utility{
         maliciousLibrariesCIDs.pop();
     }
 
-    function requestGroupAccess(string memory group_name) public controlConsent checkReliabilityUser{
+    function requestGroupAccess(string memory group_name) public controlConsent checkReliabilityUser {
         require(
-            developers[msg.sender].id == msg.sender,
+            developerManager.getDeveloperID(msg.sender) == msg.sender,
             "You must register as a developer before you join a group"
         );
+        
         require(
-            developers[msg.sender].groups_map[group_name] == 0,
+            developerManager.check_groups_map(msg.sender, group_name, true),
             "You are already a member of the group"
         );
         require(
-            developers[msg.sender].group_access_requests_map[group_name] == 0,
+            developerManager.check_group_access_requests_map(msg.sender, group_name),
             "You have already sent a request to this group"
         );
         require(
@@ -228,10 +260,7 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions, Utility{
         dev_groups[group_name].to_be_approved_map[msg.sender] = dev_groups[
             group_name
         ].to_be_approved.length;
-        developers[msg.sender].group_access_requests.push(group_name);
-        developers[msg.sender].group_access_requests_map[
-            group_name
-        ] = developers[msg.sender].group_access_requests.length;
+        developerManager.add_group_access_requests(msg.sender, group_name);
     }
 
     function acceptGroupRequest(string memory group_name, address addr) public checkReliabilityUser{
@@ -247,10 +276,8 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions, Utility{
             dev_groups[group_name].to_be_approved_map[addr] != 0,
             "This developer has not requested to join the the group"
         );
-        developers[addr].groups.push(group_name);
-        developers[addr].groups_map[group_name] = developers[addr]
-            .groups
-            .length;
+        developerManager.add_groups(addr, group_name);
+        developerManager.add_groups_map(addr, group_name);
         uint256 adminCoeff;
         for (
             uint256 i = 0;
@@ -258,40 +285,57 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions, Utility{
             i++
         ) {
             if (
-                dev_groups[group_name].admin ==
-                developers[dev_groups[group_name].group_developers[i]].id
+                dev_groups[group_name].admin == developerManager.getDeveloperID(dev_groups[group_name].group_developers[i])
             ) {
                 adminCoeff = 2;
             } else {
                 adminCoeff = 1;
             }
             if (
-                developers[addr].reliability >=
+                developerManager.getDeveloperReliability(addr) >=
                 (total_developers_reliability / devs_num) * 2
             ) {
+                developerManager.setDeveloperReliability(
+                    developerManager.getDeveloperID(dev_groups[group_name].group_developers[i]),
+                    2 * adminCoeff,
+                    true
+                );
                 addReliabilityAndTokens(
-                    developers[dev_groups[group_name].group_developers[i]].id,
+                    developerManager.getDeveloperID(dev_groups[group_name].group_developers[i]),
                     2 * adminCoeff
                 );
             } else if (
-                developers[addr].reliability >=
+                developerManager.getDeveloperReliability(addr) >=
                 total_developers_reliability / devs_num
             ) {
+                developerManager.setDeveloperReliability(
+                    developerManager.getDeveloperID(dev_groups[group_name].group_developers[i]),
+                    1 * adminCoeff,
+                    true
+                );
                 addReliabilityAndTokens(
-                    developers[dev_groups[group_name].group_developers[i]].id,
+                    developerManager.getDeveloperID(dev_groups[group_name].group_developers[i]),
                     1 * adminCoeff
                 );
             }
         }
         if (
-            developers[msg.sender].reliability >=
+            developerManager.getDeveloperReliability(msg.sender) >=
             (total_developers_reliability / devs_num) * 2
         ) {
+            developerManager.setDeveloperReliability(
+                    addr, 2,
+                    true
+                );
             addReliabilityAndTokens(addr, 2);
         } else if (
-            developers[msg.sender].reliability >=
+            developerManager.getDeveloperReliability(msg.sender) >=
             total_developers_reliability / devs_num
         ) {
+            developerManager.setDeveloperReliability(
+                    addr, 1,
+                    true
+                );
             addReliabilityAndTokens(addr, 1);
         }
         dev_groups[group_name].group_developers.push(addr);
@@ -302,12 +346,9 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions, Utility{
             dev_groups[group_name].to_be_approved_map[addr] - 1,
             dev_groups[group_name].to_be_approved
         );
-        removeStringFromArray(
-            developers[addr].group_access_requests_map[group_name] - 1,
-            developers[addr].group_access_requests
-        );
+        
         dev_groups[group_name].to_be_approved_map[addr] = 0;
-        developers[addr].group_access_requests_map[group_name] = 0;
+        developerManager.acceptGroupRequest(group_name, addr);
     }
 
     function removeDeveloperFromGroup(
@@ -319,7 +360,7 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions, Utility{
             "Insert a valid group name"
         );
         require(
-            developers[addr].groups_map[group_name] != 0,
+            developerManager.check_groups_map(msg.sender, group_name, false),
             "The developer is not part of the group"
         );
         require(
@@ -327,16 +368,12 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions, Utility{
             "You must be the admin of the group to remove a developer from it"
         );
 
-        Developer storage dev = developers[addr];
-        removeStringFromArray(
-            developers[addr].groups_map[group_name] - 1,
-            developers[addr].groups
-        );
+        developerManager.removeDeveloperFromGroup(addr, group_name);
         removeAddrFromArray(
             dev_groups[group_name].group_developers_map[addr] - 1,
             dev_groups[group_name].group_developers
         );
-        dev.groups_map[group_name] = 0;
+        
         dev_groups[group_name].group_developers_map[addr] = 0;
     }
 
@@ -381,11 +418,13 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions, Utility{
         lib.dependencies = dependencies;
         lib.project = project_name;
 
-        address[] memory devs = dev_groups[projects[project_name].group]
-            .group_developers;
-        uint256 len = devs.length;
+        uint256 len = dev_groups[projects[project_name].group]
+                    .group_developers.length;
         for (uint256 i = 0; i < len; i++) {
-            lib.developed_by.push(developers[devs[i]].id);
+            lib.developed_by.push(developerManager.getDeveloperID( 
+                dev_groups[projects[project_name].group]
+                    .group_developers[i]
+            ));
         }
 
         uint256 rel = computeReliability(CID);
@@ -401,52 +440,45 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions, Utility{
 
     function voteDeveloper(address developer) public checkReliabilityUser{
         require(
-            developers[msg.sender].id == msg.sender,
+            developerManager.getDeveloperID(msg.sender) == msg.sender,
             "You must register as a developer before you vote another developer"
         );
         require(msg.sender != developer, "You can't vote for yourself");
         require(
-            developers[developer].id == developer,
+            developerManager.getDeveloperID(developer) == developer,
             "Insert a valid developer address"
         );
         require(
-            developers[msg.sender].voted[developer] == 0,
+            developerManager.check_voted(msg.sender, developer),
             "The developers was already voted"
         );
+        developerManager.setDeveloperReliability(
+                    developer, 10,
+                    true
+                );
         addReliabilityAndTokens(developer, 10);
-        developers[msg.sender].voted[developer] = block.timestamp;
+        developerManager.vote_developer(msg.sender, developer);
     }
 
     function reportDeveloper(address developer) public checkReliabilityUser{
-        require(
-            developers[msg.sender].id == msg.sender,
-            "You must register as a developer before you report another developer"
-        );
-        require(msg.sender != developer, "You can't report yourself");
-        require(
-            developers[developer].id == developer,
-            "Insert a valid developer address"
-        );
-        require(
-            developers[msg.sender].reported[developer] == 0,
-            "The developers was already reported"
-        );
         require(consentGiven[developer], "User doesn't give consent for data processing");
-        developers[developer].reliability -= 10;
+        developerManager.report_developer(msg.sender,developer);
         total_developers_reliability -= 10;
-        developers[developer].report_num++;
-        developers[msg.sender].reported[developer] = block.timestamp;
     }
 
     function updateReliability() public {
         require(
-            block.timestamp - developers[msg.sender].last_update >= 432000,
+            developerManager.check_last_update(msg.sender),
             "Too little time has passed since the last update"
         );
-        uint256 time = block.timestamp - developers[msg.sender].last_update;
+        uint256 time = block.timestamp - developerManager.getDeveloperLastUpdate(msg.sender);
         uint256 rel = time / 432000;
+        developerManager.setDeveloperReliability(
+                    msg.sender, rel,
+                    true
+                );
         addReliabilityAndTokens(msg.sender, rel);
-        developers[msg.sender].last_update += rel * 432000;
+        developerManager.setDeveloperLastUpdate(msg.sender, rel);
     }
 
     function changeAdmin(address new_admin, string memory group_name) public checkReliabilityUser{
@@ -455,7 +487,7 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions, Utility{
             "You must be the admin of the group to appoint another admin in your place"
         );
         require(
-            developers[new_admin].id == new_admin,
+            developerManager.getDeveloperID(new_admin) == new_admin,
             "The new admin must be a registered developer"
         );
         dev_groups[group_name].admin = new_admin;
@@ -491,31 +523,25 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions, Utility{
 
     function buyReliability(uint256 reliability) public {
         require(
-            developers[msg.sender].id == msg.sender,
+            developerManager.getDeveloperID(msg.sender) == msg.sender,
             "You must register as a developer before you buy reliability"
         );
         require(
             balanceOf(msg.sender) >= reliability * reliability_cost,
             "You don't have enough SCT"
         );
-        Developer storage dev = developers[msg.sender];
-        if (block.timestamp - dev.last_reliability_buy >= 2592000) {
-            dev.reliability_bought = 0;
-        }
+        
         require(
-            dev.reliability_bought + reliability < max_reliability,
+            !developerManager.buyReliability(msg.sender, reliability, max_reliability),
             "You bought the maximum number of reliability, wait 30 days"
         );
-        if (dev.reliability_bought == 0) {
-            dev.last_reliability_buy = block.timestamp;
-        }
+        
         sctContract.transferFrom(
             msg.sender,
             address(this),
             reliability * reliability_cost
         );
-        dev.reliability_bought += reliability;
-        dev.reliability += reliability;
+        
         total_developers_reliability += reliability;
         fees_paid += reliability * reliability_cost;
     }
@@ -528,19 +554,19 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions, Utility{
         address addr
     ) public controlConsent checkReliabilityUser view returns (uint256, uint256) {
         return (
-            developers[addr].reliability,
-            developers[addr].registration_date
+            developerManager.getDeveloperReliability(addr),
+            developerManager.getDeveloperRegistrationDate(addr)  
         );
     }
 
     function getGroups(address addr) public checkReliabilityUser view returns (string[] memory) {
-        return developers[addr].groups;
+        return developerManager.getGroups(addr);
     }
 
     function getAdminGroups(
         address addr
     ) public controlConsent checkReliabilityUser view returns (string[] memory) {
-        return developers[addr].groups_adm;
+        return developerManager.getAdminGroups(addr);
     }
 
     function getGroupProjects(
@@ -552,7 +578,7 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions, Utility{
     function getGroupAccessRequests(
         address addr
     ) public controlConsent checkReliabilityUser view returns (string[] memory) {
-        return developers[addr].group_access_requests;
+        return developerManager.getGroupAccessRequests(addr);
     }
 
     function getToBeApproved(
@@ -608,13 +634,12 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions, Utility{
                 .length;
             i++
         ) {
-            Developer storage curr_dev = developers[
+            address valueReturned = developerManager.getLibraryInformationWithLevel(
                 dev_groups[projects[libraries[CID].project].group]
                     .group_developers[i]
-            ];
-            curr_dev.interaction_points++;
-            if (curr_dev.interaction_points % 1000 == 0) {
-                addReliabilityAndTokens(curr_dev.id, 1);
+            );
+            if(valueReturned != address(0)){
+                addReliabilityAndTokens(valueReturned, 1);
             }
         }
         string memory level;
@@ -647,15 +672,15 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions, Utility{
         uint256 len = devs.length;
         uint256 sum = 0;
         for (uint256 i = 0; i < len; i++) {
-            if (developers[devs[i]].reliability < 0) {
+            if (developerManager.getDeveloperReliability(devs[i]) < 0) {
                 return 0;
             }
             if (
-                developers[devs[i]].id == projects[libraries[CID].project].admin
+                developerManager.getDeveloperID(devs[i]) == projects[libraries[CID].project].admin
             ) {
-                sum += 2 * developers[devs[i]].reliability;
+                sum += 2 * developerManager.getDeveloperReliability(devs[i]);
             } else {
-                sum += developers[devs[i]].reliability;
+                sum += developerManager.getDeveloperReliability(devs[i]);
             }
         }
 
@@ -664,7 +689,6 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions, Utility{
 
 
     function addReliabilityAndTokens(address dev, uint256 reliability) private {
-        developers[dev].reliability += reliability;
         total_developers_reliability += reliability;
         if (fees_paid >= reliability) {
             sctContract.transfer(dev, reliability);
