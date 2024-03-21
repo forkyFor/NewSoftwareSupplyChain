@@ -5,8 +5,7 @@ pragma solidity ^0.8.0;
 import "./ERC20/SupplyChainToken.sol";
 import "./contracts/EventDefinitions.sol";
 import "./contracts/DeveloperManager.sol";
-import "./contracts/GroupManager.sol";
-import "./contracts/ProjectManager.sol";
+import "./contracts/ConsentManager.sol";
 import "./contracts/LibraryManager.sol";
 
 
@@ -27,7 +26,6 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions{
     mapping(string => DeveloperGroup) public dev_groups;
     mapping(string => Project) private projects;
     mapping(string => Library) private libraries;
-    mapping(address => bool) public consentGiven;
     mapping(string => address) public libraryMalicious;
 
     function removeStringFromArray(
@@ -73,24 +71,18 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions{
         _;
     }
 
-    modifier controlConsent() {
-        require(consentGiven[msg.sender], "User did not give consent for data processing");
-        _;
-    }
-
+    
     DeveloperManager private developerManager;
+    ConsentManager private consentManager;
     EventDefinitions private eventDefinitions;
 
     SupplyChainToken private sctContract;
 
     constructor(address sctAddress, uint256 max_rel, uint256 rel_cost, 
-        address _developerManager,/*  address _groupManager, 
-        address _projectManager, address _libraryManager, */ address _eventManager) {
+        address _developerManager,address _eventManager, address _consentManager) {
             developerManager = DeveloperManager(_developerManager);
-            /* groupManager = GroupManager(_groupManager);
-            projectManager = ProjectManager(_projectManager);
-            libraryManager = LibraryManager(_libraryManager); */
             eventDefinitions = EventDefinitions(_eventManager);
+            consentManager = ConsentManager(_consentManager);
             sctContract = SupplyChainToken(sctAddress);
             contract_owner = msg.sender;
             max_reliability = max_rel;
@@ -100,9 +92,9 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions{
     // Funzione per registrare il consenso
     function registerConsent(string memory _consent) public {
         if (keccak256(abi.encodePacked(_consent)) == keccak256(abi.encodePacked("Y"))) {
-            consentGiven[msg.sender] = true;
+            consentManager.setConsent(msg.sender,true);
         } else {
-            consentGiven[msg.sender] = false;
+            consentManager.setConsent(msg.sender,false);
         }
     }
 
@@ -111,13 +103,13 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions{
         address developersID = developerManager.getDeveloperID(msg.sender);
         require(developersID != address(0), "Developer does not exist");
 
-
         developerManager.setDeveloperID(msg.sender, address(0));
-        consentGiven[msg.sender] = false;
+        consentManager.setConsent(msg.sender,false);
         emit DeveloperRemoved(msg.sender);
     }
 
-    function addDeveloper(string memory _email) public controlConsent{
+    function addDeveloper(string memory _email) public {
+        consentManager.controlConsent(msg.sender);
         require(
             developerManager.getDeveloperID(msg.sender) != msg.sender,
             "You are already registered as a developer"
@@ -238,7 +230,8 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions{
         maliciousLibrariesCIDs.pop();
     }
 
-    function requestGroupAccess(string memory group_name) public controlConsent checkReliabilityUser {
+    function requestGroupAccess(string memory group_name) public checkReliabilityUser {
+        consentManager.controlConsent(msg.sender);
         require(
             developerManager.getDeveloperID(msg.sender) == msg.sender,
             "You must register as a developer before you join a group"
@@ -461,7 +454,7 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions{
     }
 
     function reportDeveloper(address developer) public checkReliabilityUser{
-        require(consentGiven[developer], "User doesn't give consent for data processing");
+        require(consentManager.getConsent(developer), "User doesn't give consent for data processing");
         developerManager.report_developer(msg.sender,developer);
         total_developers_reliability -= 10;
     }
@@ -552,7 +545,8 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions{
 
     function getDeveloperInformation(
         address addr
-    ) public controlConsent checkReliabilityUser view returns (uint256, uint256) {
+    ) public  checkReliabilityUser view returns (uint256, uint256) {
+        consentManager.controlConsent(addr);
         return (
             developerManager.getDeveloperReliability(addr),
             developerManager.getDeveloperRegistrationDate(addr)  
@@ -565,7 +559,8 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions{
 
     function getAdminGroups(
         address addr
-    ) public controlConsent checkReliabilityUser view returns (string[] memory) {
+    ) public checkReliabilityUser view returns (string[] memory) {
+        consentManager.controlConsent(addr);
         return developerManager.getAdminGroups(addr);
     }
 
@@ -577,7 +572,8 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions{
 
     function getGroupAccessRequests(
         address addr
-    ) public controlConsent checkReliabilityUser view returns (string[] memory) {
+    ) public checkReliabilityUser view returns (string[] memory) {
+        consentManager.controlConsent(addr);
         return developerManager.getGroupAccessRequests(addr);
     }
 

@@ -73,19 +73,25 @@ def deploy_contract(name: str, path: str, *params):
     tx_receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
     return abi, tx_receipt.contractAddress
 
-"""Deploy the EventDefinitions contract"""
-address = deploy_contract(
-    "EventDefinitions", "/contracts")
 
-
-"""Deploy the Utility contract"""
-address = deploy_contract(
-    "Utility", "/contracts")
 
 """Deploy the StructDefinitions contract"""
-address = deploy_contract(
+struct_manager_abi, struct_manager_address  = deploy_contract(
     "StructDefinitions", "/contracts")
-print(f"StructDefinitions contract address: {address}")
+print(f"StructDefinitions contract address: {struct_manager_address}")
+
+"""Deploy the EventDefinitions contract"""
+event_manager_abi, event_manager_address  = deploy_contract("EventDefinitions", "/contracts")
+print(f"EventDefinitions deployed")
+
+
+developer_manager_abi, developer_manager_address = deploy_contract("DeveloperManager", "/contracts")
+print(f"DeveloperManager deployed")
+consent_manager_abi, consent_manager_address = deploy_contract("ConsentManager", "/contracts")
+print(f"ConsentManager deployed")
+group_manager_abi, group_manager_address = deploy_contract("GroupManager", "/contracts")
+project_manager_abi, project_manager_address = deploy_contract("ProjectManager", "/contracts")
+library_manager_abi, library_manager_address = deploy_contract("LibraryManager", "/contracts")
 
 """Deploy the SupplyChainToken contract"""
 token_abi, token_address = deploy_contract("SupplyChainToken", "/ERC20", initial_tokens)
@@ -97,8 +103,7 @@ with open("token_abi.json", "w") as file:
 
 """Deploy the SoftwareSupplyChain contract"""
 abi, address = deploy_contract(
-    "SoftwareSupplyChain", "/contracts", token_address, max_reliability, reliability_cost
-)
+    "SoftwareSupplyChain", "/contracts", token_address, max_reliability, reliability_cost, developer_manager_address,  event_manager_address, consent_manager_address)
 print(f"SoftwareSupplyChain contract address: {address}")
 set_key(dotenv_file, "CONTRACT_ADDRESS", address)
 
