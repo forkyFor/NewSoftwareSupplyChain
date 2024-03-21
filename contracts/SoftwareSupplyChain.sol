@@ -5,6 +5,7 @@ pragma solidity ^0.8.0;
 import "./ERC20/SupplyChainToken.sol";
 import "./contracts/EventDefinitions.sol";
 import "./contracts/DeveloperManager.sol";
+import "./contracts/ProjectManager.sol";
 import "./contracts/ConsentManager.sol";
 import "./contracts/LibraryManager.sol";
 
@@ -24,7 +25,6 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions{
     uint256 public max_reliability;
     
     mapping(string => DeveloperGroup) public dev_groups;
-    mapping(string => Project) private projects;
     mapping(string => Library) private libraries;
     mapping(string => address) public libraryMalicious;
 
@@ -73,16 +73,18 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions{
 
     
     DeveloperManager private developerManager;
+    ProjectManager private projectManager;
     ConsentManager private consentManager;
     EventDefinitions private eventDefinitions;
 
     SupplyChainToken private sctContract;
 
     constructor(address sctAddress, uint256 max_rel, uint256 rel_cost, 
-        address _developerManager,address _eventManager, address _consentManager) {
+        address _developerManager,address _eventManager, address _consentManager, address _projectManager) {
             developerManager = DeveloperManager(_developerManager);
             eventDefinitions = EventDefinitions(_eventManager);
             consentManager = ConsentManager(_consentManager);
+            projectManager = ProjectManager(_projectManager);
             sctContract = SupplyChainToken(sctAddress);
             contract_owner = msg.sender;
             max_reliability = max_rel;
@@ -172,21 +174,14 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions{
             "You must be the admin of the group to create a project"
         );
         require(
-            bytes(projects[project_name].name).length == 0,
-            "A project with the same name already exists"
-        );
-        require(
             sctContract.balanceOf(msg.sender) >= 2000,
             "You need 2000 SCT to create a project"
         );
-        Project storage project = projects[project_name];
-        dev_groups[group_name].group_projects.push(project_name);
-        project.name = project_name;
-        project.group = group_name;
-        project.admin = msg.sender;
-        projects_num++;
-        sctContract.transferFrom(msg.sender, address(this), 2000);
-        fees_paid += 2000;
+        if(projectManager.createProject(group_name,project_name,msg.sender)){
+            projects_num++;
+            sctContract.transferFrom(msg.sender, address(this), 2000);
+            fees_paid += 2000;
+        }        
     }
 
     function reportLibraryMalicious(string memory _CID) public {
@@ -202,7 +197,7 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions{
     }
 
     function resolveLibraryReport(string memory _CID, bool _isMalicious) public {
-    require(dev_groups[projects[libraries[_CID].project].group].admin == msg.sender, "Only admin can resolve reports");
+    require(dev_groups[projectManager.getProjectGroup(libraries[_CID].project)].admin == msg.sender, "Only admin can resolve reports");
     require(libraryMalicious[_CID] != address(0), "Library not reported");
 
         address reporter = libraryMalicious[_CID];
@@ -376,14 +371,8 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions{
         string memory version,
         string[] memory dependencies
     ) public checkReliabilityUser{
-        require(
-            projects[project_name].admin == msg.sender,
-            "You must be the admin of the project to publish a library"
-        );
-        require(
-            bytes(projects[project_name].name).length != 0,
-            "Insert a valid project name"
-        );
+        projectManager.checkAdminProject(msg.sender, project_name);
+        projectManager.checkValidProjectName(project_name);
         require(bytes(CID).length != 0, "The CID can't be empty");
 
         if (bytes(dependencies[0]).length != 0) {
@@ -395,7 +384,7 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions{
             }
         }
         require(
-            !(bytes(projects[project_name].library_versions_map[version])
+            !(bytes(projectManager.getLibraryVersionCID(project_name,version))
                 .length !=
                 0 ||
                 bytes(libraries[CID].CID).length != 0),
@@ -411,11 +400,11 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions{
         lib.dependencies = dependencies;
         lib.project = project_name;
 
-        uint256 len = dev_groups[projects[project_name].group]
+        uint256 len = dev_groups[projectManager.getProjectGroup(project_name)]
                     .group_developers.length;
         for (uint256 i = 0; i < len; i++) {
             lib.developed_by.push(developerManager.getDeveloperID( 
-                dev_groups[projects[project_name].group]
+                dev_groups[projectManager.getProjectGroup(project_name)]
                     .group_developers[i]
             ));
         }
@@ -424,9 +413,7 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions{
         lib.reliability = rel;
         total_libraries_reliability += rel;
         libraries_num++;
-        projects[project_name].library_versions.push(CID);
-        projects[project_name].last_version = CID;
-        projects[project_name].library_versions_map[version] = CID;
+        projectManager.checkReliabilityUser(project_name, CID, version);
         sctContract.transferFrom(msg.sender, address(this), 1000);
         fees_paid += 1000;
     }
@@ -489,8 +476,7 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions{
             i < dev_groups[group_name].group_projects.length;
             i++
         ) {
-            projects[dev_groups[group_name].group_projects[i]]
-                .admin = new_admin;
+            projectManager.setProjectAdmin(projectManager.getProjectName(dev_groups[group_name].group_projects[i]), new_admin);
         }
     }
 
@@ -586,13 +572,13 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions{
     function getProjectVersions(
         string memory project_name
     ) public view returns (string[] memory) {
-        return projects[project_name].library_versions;
+        projectManager.getLibraryVersions(project_name);
     }
 
     function getProjectLastVersion(
         string memory project_name
     ) public view returns (string memory) {
-        return projects[project_name].last_version;
+        projectManager.getProjectLastVersion(project_name);
     }
 
     function getLibraryInformation(
@@ -625,13 +611,13 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions{
         for (
             uint256 i = 0;
             i <
-            dev_groups[projects[libraries[CID].project].group]
+            dev_groups[projectManager.getProjectGroup(libraries[CID].project)]
                 .group_developers
                 .length;
             i++
         ) {
             address valueReturned = developerManager.getLibraryInformationWithLevel(
-                dev_groups[projects[libraries[CID].project].group]
+                dev_groups[projectManager.getProjectGroup(libraries[CID].project)]
                     .group_developers[i]
             );
             if(valueReturned != address(0)){
@@ -672,7 +658,7 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions{
                 return 0;
             }
             if (
-                developerManager.getDeveloperID(devs[i]) == projects[libraries[CID].project].admin
+                developerManager.getDeveloperID(devs[i]) == projectManager.getProjectAdmin(libraries[CID].project)
             ) {
                 sum += 2 * developerManager.getDeveloperReliability(devs[i]);
             } else {
