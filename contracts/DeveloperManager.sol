@@ -6,6 +6,90 @@ import "../ERC20/SupplyChainToken.sol";
 
 contract DeveloperManager is StructDefinitions {
 
+
+
+    //modifiers
+    function checkUpdateReliability(address addr) public view{
+        require(
+            block.timestamp - developers[addr].last_update >= 432000,
+            "Too little time has passed since the last update"
+        );
+    }
+    
+    function checkBuyReliability(address addr, uint256 reliability, uint256 max_reliability) public{
+        require(
+            getDeveloperID(addr) == addr,
+            "You must register as a developer before you buy reliability"
+        );
+
+        require(
+            !buyReliability(msg.sender, reliability, max_reliability),
+            "You bought the maximum number of reliability, wait 30 days"
+        );
+    }
+
+    function checkChangeAdmin(address new_admin) public view{
+        require(
+            getDeveloperID(new_admin) == new_admin,
+            "The new admin must be a registered developer"
+        );
+    }
+
+    function checkDeveloperExisting(address addr) public view{
+        require(getDeveloperID(addr) != address(0), "Developer does not exist");
+    }
+        
+    function checkDeveloperGroup(address addr) public view{
+        require(
+            getDeveloperID(addr) == addr,
+            "You must register as a developer before you create a group"
+        );
+    }
+    
+    function checkVoteDeveloper(address addr, address developer) public view{
+        require(
+            getDeveloperID(addr) == addr,
+            "You must register as a developer before you vote another developer"
+        );
+        
+        require(
+            getDeveloperID(developer) == developer,
+            "Insert a valid developer address"
+        );
+        require(
+            check_voted(addr, developer),
+            "The developers was already voted"
+        );
+    }
+    
+    function checkRequestGroupAccess(address addr, string memory group_name) public view{
+        require(
+            getDeveloperID(addr) == addr,
+            "You must register as a developer before you join a group"
+        );
+        
+        require(
+            check_groups_map(addr, group_name, true),
+            "You are already a member of the group"
+        );
+        require(
+            check_group_access_requests_map(addr, group_name),
+            "You have already sent a request to this group"
+        );
+    }
+
+    function check_groups_map_removeDeveloperFromGroup(address addr, string memory group_name) public view{
+        require(
+            check_groups_map(addr, group_name, false),
+            "The developer is not part of the group"
+        );
+    }
+
+
+    
+
+    //endmodifiers
+
     function removeStringFromArray(
         uint256 index,
         string[] storage array
@@ -44,8 +128,12 @@ contract DeveloperManager is StructDefinitions {
         return developers[addr].voted[developer] == 0;
     }
 
-    function check_last_update(address addr) public view returns (bool){
-        return block.timestamp - developers[addr].last_update >= 432000;
+
+    function checkDeveloperRegistered(address addr) public view returns (bool){
+        require(
+            getDeveloperID(addr) != addr,
+            "You are already registered as a developer"
+        );
     }
 
     function vote_developer(address addr, address developer) public{
@@ -123,12 +211,8 @@ contract DeveloperManager is StructDefinitions {
         ] = developers[addr].group_access_requests.length;
     }
     
-
-    function add_groups(address addr, string memory group_name) public {
-        developers[addr].groups.push(group_name);
-    }
-
     function add_groups_map(address addr, string memory group_name) public {
+        developers[addr].groups.push(group_name);
         developers[addr].groups_map[group_name] = developers[addr]
             .groups
             .length;
@@ -145,6 +229,11 @@ contract DeveloperManager is StructDefinitions {
         );
 
         developers[addr].groups_map[group_name] = 0;
+    }
+
+    function removeDeveloper(address addr) public{
+        checkDeveloperExisting(addr);
+        setDeveloperID(addr, address(0));
     }
 
     function acceptGroupRequest(string memory group_name, address addr) public{
@@ -186,6 +275,15 @@ contract DeveloperManager is StructDefinitions {
     // Returns the registration date of a developer
     function getDeveloperRegistrationDate(address addr) public view returns (uint256) {
         return developers[addr].registration_date;
+    }
+
+    function getDeveloperInformation(
+        address addr
+    ) public  view returns (uint256, uint256) {
+        return (
+            getDeveloperReliability(addr),
+            getDeveloperRegistrationDate(addr)  
+        );
     }
 
     // Returns the last update date of a developer
