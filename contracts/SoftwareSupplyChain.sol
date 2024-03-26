@@ -136,12 +136,12 @@ contract SoftwareSupplyChain is EventDefinitions{
         libraryManager.getMaliciousLibraries();
     }
 
-    function resolveLibraryReport(string memory _CID, bool _isMalicious) public {
+    function resolveLibraryReport(string memory _CID, string memory _isMalicious) public {
         require(groupManager.getGroupAdmin(projectManager.getProjectGroup(libraryManager.getLibraryProject(_CID))) == msg.sender, "Only admin can resolve reports");
         libraryManager.checkLibraryReport(_CID);
 
         address reporter = libraryManager.getLibraryMalicious(_CID);
-        if (_isMalicious) {
+        if (keccak256(abi.encodePacked(_isMalicious)) == keccak256(abi.encodePacked("true"))) {
             // Decrease the reliability of the library and encrease that of the reporter
             libraryManager.lessLibraryReliability(_CID,10);
             developerManager.setDeveloperReliability(reporter, 10, true);

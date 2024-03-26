@@ -104,6 +104,27 @@ class Transactions:
             print(f"The request to report the library with the {CID} has been registered\n")
         except exceptions.SolidityError as error:
             print(str(error)[70:], end="\n\n")
+            
+    def getMaliciousLibraries(self):
+        try:
+            self.createTransaction(
+                self.contract.functions.getMaliciousLibraries
+            )
+        except exceptions.SolidityError as error:
+            print(str(error)[70:], end="\n\n")
+            
+    def resolveLibraryMalicious(self):
+        CID: str = input("Insert the CID of library:")
+        print("Processing the request...")
+        maliciuos: str = input("Is malicious? (true/false)")
+        print("Processing the request...")
+        try:
+            self.createTransaction(
+                self.contract.functions.resolveLibraryReport, CID, maliciuos
+            )
+            print(f"The report the library with the {CID} has been updated\n")
+        except exceptions.SolidityError as error:
+            print(str(error)[70:], end="\n\n")
    
     
 

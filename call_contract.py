@@ -66,6 +66,8 @@ if __name__ == "__main__":
                 29 - Get the number of tokens of a developer
                 30 - Confirmation/withdrawal of the processing of personal data as indicated by GDPR
                 31 - Report Library Malicious
+                32 - Resolve Library Malicious
+                33 - Get Libraris Reported as Malicious
                 q - Exit\n"""
         )
         if cmd == "1":
@@ -207,6 +209,10 @@ if __name__ == "__main__":
             transactions.registerConsent()
         elif cmd == "31":
             transactions.reportLibraryMalicious()
+        elif cmd == "32":
+            transactions.resolveLibraryMalicious()
+        elif cmd == "33":
+            transactions.getMaliciousLibraries()
         elif cmd == "q" or cmd == "Q":
             break
         else:
