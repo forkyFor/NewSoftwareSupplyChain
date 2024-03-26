@@ -5,6 +5,7 @@ pragma solidity ^0.8.0;
 import "./ERC20/SupplyChainToken.sol";
 import "./contracts/EventDefinitions.sol";
 import "./contracts/DeveloperManager.sol";
+import "./contracts/GroupManager.sol";
 import "./contracts/ProjectManager.sol";
 import "./contracts/ConsentManager.sol";
 import "./contracts/LibraryManager.sol";
@@ -22,32 +23,8 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions{
     uint256 public total_developers_reliability;
     uint256 public total_libraries_reliability;
     uint256 public max_reliability;
-    
-    mapping(string => DeveloperGroup) public dev_groups;
 
-    function removeStringFromArray(
-        uint256 index,
-        string[] storage array
-    ) internal {
-        if (index >= array.length) return;
 
-        for (uint256 i = index; i < array.length - 1; i++) {
-            array[i] = array[i + 1];
-        }
-        array.pop();
-    }
-
-    function removeAddrFromArray(
-        uint256 index,
-        address[] storage array
-    ) internal {
-        if (index >= array.length) return;
-
-        for (uint256 i = index; i < array.length - 1; i++) {
-            array[i] = array[i + 1];
-        }
-        array.pop();
-    }
 
     //modifiers
     modifier controlBalance() {
@@ -73,17 +50,19 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions{
     ProjectManager private projectManager;
     ConsentManager private consentManager;
     LibraryManager private libraryManager;
+    GroupManager private groupManager;
     EventDefinitions private eventDefinitions;
 
     SupplyChainToken private sctContract;
 
     constructor(address sctAddress, uint256 max_rel, uint256 rel_cost, 
-        address _developerManager,address _eventManager, address _consentManager, address _projectManager, address _libraryManager) {
+        address _developerManager,address _eventManager, address _consentManager, address _projectManager, address _libraryManager, address _groupManager) {
             developerManager = DeveloperManager(_developerManager);
             eventDefinitions = EventDefinitions(_eventManager);
             consentManager = ConsentManager(_consentManager);
             projectManager = ProjectManager(_projectManager);
             libraryManager = LibraryManager(_libraryManager);
+            groupManager = GroupManager(_groupManager);
             sctContract = SupplyChainToken(sctAddress);
             contract_owner = msg.sender;
             max_reliability = max_rel;
@@ -126,22 +105,15 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions{
     function createGroup(string memory group_name) public checkReliabilityUser{
         developerManager.checkDeveloperGroup(msg.sender);
         require(bytes(group_name).length != 0, "The name can't be empty");
-        require(
-            bytes(dev_groups[group_name].name).length == 0,
-            "A group with the same name aready exists"
-        );
+        groupManager.checkGroupExisting(group_name);
         require(
             sctContract.balanceOf(msg.sender) >= 2000,
             "You need 2000 SCT to create a group"
         );
-        DeveloperGroup storage dev_group = dev_groups[group_name];
+        
         developerManager.addGroupsDeveloperID(msg.sender, group_name);
-        dev_group.name = group_name;
-        dev_group.admin = msg.sender;
-        dev_group.group_developers.push(msg.sender);
-        dev_group.group_developers_map[msg.sender] = dev_group
-            .group_developers
-            .length;
+        groupManager.addDeveloperGroup(group_name, msg.sender);
+        
         groups_num++;
         sctContract.transferFrom(msg.sender, address(this), 2000);
         fees_paid += 2000;
@@ -151,18 +123,12 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions{
         string memory group_name,
         string memory project_name
     ) public  checkReliabilityUser{
-        require(
-            bytes(dev_groups[group_name].name).length != 0,
-            "Insert a valid group name"
-        );
+        groupManager.checkNameGroup(group_name);
         require(
             bytes(project_name).length != 0,
             "The project name can't be empty"
         );
-        require(
-            dev_groups[group_name].admin == msg.sender,
-            "You must be the admin of the group to create a project"
-        );
+        groupManager.checkGroupAdmin(group_name, msg.sender);
         require(
             sctContract.balanceOf(msg.sender) >= 2000,
             "You need 2000 SCT to create a project"
@@ -183,7 +149,7 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions{
     }
 
     function resolveLibraryReport(string memory _CID, bool _isMalicious) public {
-        require(dev_groups[projectManager.getProjectGroup(libraryManager.getLibraryProject(_CID))].admin == msg.sender, "Only admin can resolve reports");
+        require(groupManager.getGroupAdmin(projectManager.getProjectGroup(libraryManager.getLibraryProject(_CID))) == msg.sender, "Only admin can resolve reports");
         libraryManager.checkLibraryReport(_CID);
 
         address reporter = libraryManager.getLibraryMalicious(_CID);
@@ -203,45 +169,28 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions{
     function requestGroupAccess(string memory group_name) public checkReliabilityUser {
         consentManager.controlConsent(msg.sender);
         developerManager.checkRequestGroupAccess(msg.sender, group_name);
-        require(
-            bytes(dev_groups[group_name].name).length != 0,
-            "Insert a valid group name"
-        );
-        dev_groups[group_name].to_be_approved.push(msg.sender);
-        dev_groups[group_name].to_be_approved_map[msg.sender] = dev_groups[
-            group_name
-        ].to_be_approved.length;
+        groupManager.checkNameGroup(group_name);
+
+
+        groupManager.requestGroupAccess(group_name, msg.sender);
         developerManager.add_group_access_requests(msg.sender, group_name);
     }
 
     function acceptGroupRequest(string memory group_name, address addr) public checkReliabilityUser{
-        require(
-            bytes(dev_groups[group_name].name).length != 0,
-            "Insert a valid group name"
-        );
-        require(
-            dev_groups[group_name].admin == msg.sender,
-            "You must be the admin of the group to accept requests"
-        );
-        require(
-            dev_groups[group_name].to_be_approved_map[addr] != 0,
-            "This developer has not requested to join the the group"
-        );
+        groupManager.checkAcceptGroupRequest(group_name, msg.sender, addr);
+
+
         developerManager.add_groups_map(addr, group_name);
-        uint256 adminCoeff;
+        
         uint256 coeff;
         for (
             uint256 i = 0;
-            i < dev_groups[group_name].group_developers.length;
+            i < groupManager.getGroupDevelopers(group_name).length;
             i++
         ) {
-            address idDev = developerManager.getDeveloperID(dev_groups[group_name].group_developers[i]);
+            address idDev = developerManager.getDeveloperID(groupManager.getGroupDevelopers(group_name)[i]);
 
-            if (dev_groups[group_name].admin == idDev) {
-                adminCoeff = 2;
-            } else {
-                adminCoeff = 1;
-            }
+            uint256 adminCoeff = groupManager.getAdminCoeff(group_name, idDev);
 
             if (developerManager.getDeveloperReliability(addr) >= (total_developers_reliability / devs_num) * 2) {
                 coeff = 2 * adminCoeff;
@@ -277,16 +226,7 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions{
         developerManager.setDeveloperReliability(addr, value,true);
         addReliabilityAndTokens(addr, value);
 
-        dev_groups[group_name].group_developers.push(addr);
-        dev_groups[group_name].group_developers_map[addr] = dev_groups[
-            group_name
-        ].group_developers.length;
-        removeAddrFromArray(
-            dev_groups[group_name].to_be_approved_map[addr] - 1,
-            dev_groups[group_name].to_be_approved
-        );
-        
-        dev_groups[group_name].to_be_approved_map[addr] = 0;
+        groupManager.acceptGroupRequest(group_name, addr);
         developerManager.acceptGroupRequest(group_name, addr);
     }
 
@@ -294,23 +234,12 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions{
         string memory group_name,
         address addr
     ) public checkReliabilityUser{
-        require(
-            bytes(dev_groups[group_name].name).length != 0,
-            "Insert a valid group name"
-        );
+        groupManager.checkNameGroup(group_name);
         developerManager.check_groups_map_removeDeveloperFromGroup(msg.sender, group_name);
-        require(
-            dev_groups[group_name].admin == msg.sender,
-            "You must be the admin of the group to remove a developer from it"
-        );
+        groupManager.checkGroupAdmin(group_name, msg.sender);
 
         developerManager.removeDeveloperFromGroup(addr, group_name);
-        removeAddrFromArray(
-            dev_groups[group_name].group_developers_map[addr] - 1,
-            dev_groups[group_name].group_developers
-        );
-        
-        dev_groups[group_name].group_developers_map[addr] = 0;
+        groupManager.removeDeveloperFromGroup( group_name, addr);
     }
 
     function addLibrary(
@@ -343,18 +272,13 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions{
             "You need 1000 SCT to add a library version to a project"
         );
 
-        uint256 len = dev_groups[projectManager.getProjectGroup(project_name)]
-                    .group_developers.length;
-
+        uint256 len = groupManager.getGroupDevelopers(projectManager.getProjectGroup(project_name)).length;
         uint256 rel = computeReliability(CID);
         libraryManager.addLibrary(project_name, CID, version, dependencies, rel);
+        string memory projectGroup = projectManager.getProjectGroup(project_name);
         
         for (uint256 i = 0; i < len; i++) {
-            libraryManager.setLibraryDevelopedBy(CID,
-                developerManager.getDeveloperID( 
-                dev_groups[projectManager.getProjectGroup(project_name)]
-                    .group_developers[i]
-                ));
+            libraryManager.setLibraryDevelopedBy(CID, developerManager.getDeveloperID(groupManager.getGroupDevelopers(projectGroup)[i]));
         }
 
         
@@ -392,19 +316,16 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions{
     }
 
     function changeAdmin(address new_admin, string memory group_name) public checkReliabilityUser{
-        require(
-            dev_groups[group_name].admin == msg.sender,
-            "You must be the admin of the group to appoint another admin in your place"
-        );
+        groupManager.checkGroupAdmin(group_name,new_admin);
         developerManager.checkChangeAdmin(new_admin);
         
-        dev_groups[group_name].admin = new_admin;
+        groupManager.setGroupAdmin(group_name,new_admin);
         for (
             uint256 i = 0;
-            i < dev_groups[group_name].group_projects.length;
+            i < groupManager.getGroupProjects(group_name).length; 
             i++
         ) {
-            projectManager.setProjectAdmin(projectManager.getProjectName(dev_groups[group_name].group_projects[i]), new_admin);
+            projectManager.setProjectAdmin(projectManager.getProjectName(groupManager.getGroupProjects(group_name)[i]), new_admin);
         }
     }
 
@@ -472,7 +393,7 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions{
     function getGroupProjects(
         string memory group_name
     ) public checkReliabilityUser view returns (string[] memory) {
-        return dev_groups[group_name].group_projects;
+        return groupManager.getGroupProjects(group_name);
     }
 
     function getGroupAccessRequests(
@@ -485,7 +406,7 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions{
     function getToBeApproved(
         string memory group_name
     ) public checkReliabilityUser view returns (address[] memory) {
-        return dev_groups[group_name].to_be_approved;
+        return groupManager.getToBeApproved(group_name);
     }
 
     function getProjectVersions(
@@ -527,14 +448,11 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions{
         for (
             uint256 i = 0;
             i <
-            dev_groups[projectManager.getProjectGroup(libraryManager.getLibraryProject(CID))]
-                .group_developers
-                .length;
+            groupManager.getGroupDevelopers(projectManager.getProjectGroup(libraryManager.getLibraryProject(CID))).length;
             i++
         ) {
             address valueReturned = developerManager.getLibraryInformationWithLevel(
-                dev_groups[projectManager.getProjectGroup(libraryManager.getLibraryProject(CID))]
-                    .group_developers[i]
+                groupManager.getGroupDevelopers(projectManager.getProjectGroup(libraryManager.getLibraryProject(CID)))[i]
             );
             if(valueReturned != address(0)){
                 addReliabilityAndTokens(valueReturned, 1);

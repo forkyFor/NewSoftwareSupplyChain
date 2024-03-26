@@ -90,6 +90,7 @@ print(f"DeveloperManager deployed")
 consent_manager_abi, consent_manager_address = deploy_contract("ConsentManager", "/contracts")
 print(f"ConsentManager deployed")
 group_manager_abi, group_manager_address = deploy_contract("GroupManager", "/contracts")
+print(f"GroupManager deployed")
 project_manager_abi, project_manager_address = deploy_contract("ProjectManager", "/contracts")
 print(f"ProjectManager deployed")
 library_manager_abi, library_manager_address = deploy_contract("LibraryManager", "/contracts")
@@ -105,7 +106,7 @@ with open("token_abi.json", "w") as file:
 
 """Deploy the SoftwareSupplyChain contract"""
 abi, address = deploy_contract(
-    "SoftwareSupplyChain", "/contracts", token_address, max_reliability, reliability_cost, developer_manager_address,  event_manager_address, consent_manager_address, project_manager_address, library_manager_address)
+    "SoftwareSupplyChain", "/contracts", token_address, max_reliability, reliability_cost, developer_manager_address,  event_manager_address, consent_manager_address, project_manager_address, library_manager_address, group_manager_address)
 print(f"SoftwareSupplyChain contract address: {address}")
 set_key(dotenv_file, "CONTRACT_ADDRESS", address)
 
