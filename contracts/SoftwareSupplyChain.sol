@@ -39,16 +39,10 @@ contract SoftwareSupplyChain is EventDefinitions{
         );
     }
 
-    modifier checkReliabilityUser() {
+    function checkReliabilityUser() internal view {
         uint256 developerReliability = developerManager.getDeveloperReliability(msg.sender);
-
-        require(
-            developerReliability >= (total_developers_reliability / devs_num),
-            "You're not authorized to execute this operation"
-        );
-        _;
+        require(developerReliability >= (total_developers_reliability / devs_num), "You're not authorized to execute this operation");
     }
-
     
     DeveloperManager private developerManager;
     ProjectManager private projectManager;
@@ -102,7 +96,8 @@ contract SoftwareSupplyChain is EventDefinitions{
         emit DeveloperAdded(msg.sender, _email);
     }
 
-    function createGroup(string memory group_name) public checkReliabilityUser  {
+    function createGroup(string memory group_name) public   {
+        checkReliabilityUser();
         controlBalance(2000);
         checkName(group_name);
         developerManager.checkDeveloperGroup(msg.sender);
@@ -119,7 +114,8 @@ contract SoftwareSupplyChain is EventDefinitions{
     function createProject(
         string memory group_name,
         string memory project_name
-    ) public  checkReliabilityUser  {
+    ) public {
+        checkReliabilityUser();
         checkName(project_name);
         controlBalance(2000);
         groupManager.checkNameGroup(group_name);
@@ -158,7 +154,8 @@ contract SoftwareSupplyChain is EventDefinitions{
         libraryManager.resolveLibraryReport(_CID);
     }
 
-    function requestGroupAccess(string memory group_name) public checkReliabilityUser {
+    function requestGroupAccess(string memory group_name) public  {
+        checkReliabilityUser();
         consentManager.controlConsent(msg.sender);
         developerManager.checkRequestGroupAccess(msg.sender, group_name);
         groupManager.checkNameGroup(group_name);
@@ -168,7 +165,8 @@ contract SoftwareSupplyChain is EventDefinitions{
         developerManager.add_group_access_requests(msg.sender, group_name);
     }
 
-    function acceptGroupRequest(string memory group_name, address addr) public checkReliabilityUser{
+    function acceptGroupRequest(string memory group_name, address addr) public {
+        checkReliabilityUser();
         groupManager.checkAcceptGroupRequest(group_name, msg.sender, addr);
 
         developerManager.add_groups_map(addr, group_name);
@@ -207,7 +205,8 @@ contract SoftwareSupplyChain is EventDefinitions{
     function removeDeveloperFromGroup(
         string memory group_name,
         address addr
-    ) public checkReliabilityUser{
+    ) public {
+        checkReliabilityUser();
         groupManager.checkNameGroup(group_name);
         developerManager.check_groups_map_removeDeveloperFromGroup(msg.sender, group_name);
         groupManager.checkGroupAdmin(group_name, msg.sender);
@@ -221,7 +220,8 @@ contract SoftwareSupplyChain is EventDefinitions{
         string memory CID,
         string memory version,
         string[] memory dependencies
-    ) public checkReliabilityUser  {
+    ) public   {
+        checkReliabilityUser();
         checkName(CID);
         controlBalance(1000);
         projectManager.checkAdminProject(msg.sender, project_name);
@@ -254,13 +254,15 @@ contract SoftwareSupplyChain is EventDefinitions{
         fees_paid += 1000;
     }
 
-    function voteDeveloper(address developer) public checkReliabilityUser{
+    function voteDeveloper(address developer) public {
+        checkReliabilityUser();
         require(msg.sender != developer, "You can't vote for yourself");
         developerManager.voteDeveloper(msg.sender, developer, 10, true);
         addReliabilityAndTokens(developer, 10);
     }
 
-    function reportDeveloper(address developer) public checkReliabilityUser{
+    function reportDeveloper(address developer) public {
+        checkReliabilityUser();
         require(consentManager.getConsent(developer), "User doesn't give consent for data processing");
         developerManager.report_developer(msg.sender,developer);
         total_developers_reliability -= 10;
@@ -278,7 +280,8 @@ contract SoftwareSupplyChain is EventDefinitions{
         developerManager.setDeveloperLastUpdate(msg.sender, rel);
     }
 
-    function changeAdmin(address new_admin, string memory group_name) public checkReliabilityUser{
+    function changeAdmin(address new_admin, string memory group_name) public {
+        checkReliabilityUser();
         groupManager.checkGroupAdmin(group_name,new_admin);
         developerManager.checkChangeAdmin(new_admin);
         
@@ -332,39 +335,45 @@ contract SoftwareSupplyChain is EventDefinitions{
 
     function getDeveloperInformation(
         address addr
-    ) public  checkReliabilityUser view returns (uint256, uint256) {
+    ) public   view returns (uint256, uint256) {
+        checkReliabilityUser();
         consentManager.controlConsent(addr);
 
         return developerManager.getDeveloperInformation(addr);
     }
 
-    function getGroups(address addr) public checkReliabilityUser view returns (string[] memory) {
+    function getGroups(address addr) public  view returns (string[] memory) {
+        checkReliabilityUser();
         return developerManager.getGroups(addr);
     }
 
     function getAdminGroups(
         address addr
-    ) public checkReliabilityUser view returns (string[] memory) {
+    ) public view returns (string[] memory) {
+        checkReliabilityUser();
         consentManager.controlConsent(addr);
         return developerManager.getAdminGroups(addr);
     }
 
     function getGroupProjects(
         string memory group_name
-    ) public checkReliabilityUser view returns (string[] memory) {
+    ) public view returns (string[] memory) {
+        checkReliabilityUser();
         return groupManager.getGroupProjects(group_name);
     }
 
     function getGroupAccessRequests(
         address addr
-    ) public checkReliabilityUser view returns (string[] memory) {
+    ) public view returns (string[] memory) {
+        checkReliabilityUser();
         consentManager.controlConsent(addr);
         return developerManager.getGroupAccessRequests(addr);
     }
 
     function getToBeApproved(
         string memory group_name
-    ) public checkReliabilityUser view returns (address[] memory) {
+    ) public view returns (address[] memory) {
+        checkReliabilityUser();
         return groupManager.getToBeApproved(group_name);
     }
 
@@ -383,8 +392,7 @@ contract SoftwareSupplyChain is EventDefinitions{
     function getLibraryInformation(
         string memory CID
     )
-        public checkReliabilityUser
-        view
+        public view
         returns (
             string memory,
             string memory,
@@ -392,13 +400,14 @@ contract SoftwareSupplyChain is EventDefinitions{
             uint256 reliability
         )
     {
+        checkReliabilityUser();
         (string memory version, string memory project, string[] memory dependencies)= libraryManager.getLibraryInformation(CID);
         reliability = computeReliability(CID);
         return (version, project, dependencies, reliability);
     }
 
-    function getLibraryInformationWithLevel(string memory CID) public checkReliabilityUser{
-
+    function getLibraryInformationWithLevel(string memory CID) public {
+        checkReliabilityUser();
         
         uint256 rel = computeReliability(CID);
         uint256 rel_diff = rel - libraryManager.getLibraryReliability(CID);
