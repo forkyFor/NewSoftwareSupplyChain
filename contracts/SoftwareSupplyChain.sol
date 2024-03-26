@@ -24,24 +24,19 @@ contract SoftwareSupplyChain is EventDefinitions{
     uint256 public total_libraries_reliability;
     uint256 public max_reliability;
 
-
-
     //modifiers
-    modifier controlBalance(uint256 value) {
-
+    function controlBalance(uint256 value) public {
         require(
             sctContract.balanceOf(msg.sender) >= value,
             "You don't have enough SCT"
         ); 
-        _;
     }
 
-    modifier checkName(string memory name) {
+    function checkName(string memory name) public {
         require(
             bytes(name).length != 0,
             "The name can't be empty"
         );
-        _;
     }
 
     modifier checkReliabilityUser() {
@@ -82,7 +77,8 @@ contract SoftwareSupplyChain is EventDefinitions{
         consentManager.registerConsent(msg.sender,_consent);
     }
 
-    function removeDeveloper() public controlBalance(3000){
+    function removeDeveloper() public {
+        controlBalance(3000);
         developerManager.removeDeveloper(msg.sender);
         consentManager.setConsent(msg.sender,false);
         emit DeveloperRemoved(msg.sender);
@@ -94,7 +90,8 @@ contract SoftwareSupplyChain is EventDefinitions{
         emit verifyExistingEmail(msg.sender, _email);
     }
 
-    function responseVerifyExistingEmail(bool found, string memory _email) public controlBalance(3000){
+    function responseVerifyExistingEmail(bool found, string memory _email) public {
+        controlBalance(3000);
         require(!found, "A developer with the same email already exists");
         require(bytes(_email).length != 0, "Insert a valid email");
 
@@ -105,7 +102,9 @@ contract SoftwareSupplyChain is EventDefinitions{
         emit DeveloperAdded(msg.sender, _email);
     }
 
-    function createGroup(string memory group_name) public checkReliabilityUser checkName(group_name) controlBalance(2000){
+    function createGroup(string memory group_name) public checkReliabilityUser  {
+        controlBalance(2000);
+        checkName(group_name);
         developerManager.checkDeveloperGroup(msg.sender);
         groupManager.checkGroupExisting(group_name);
 
@@ -120,7 +119,9 @@ contract SoftwareSupplyChain is EventDefinitions{
     function createProject(
         string memory group_name,
         string memory project_name
-    ) public  checkReliabilityUser checkName(project_name) controlBalance(2000){
+    ) public  checkReliabilityUser  {
+        checkName(project_name);
+        controlBalance(2000);
         groupManager.checkNameGroup(group_name);
         groupManager.checkGroupAdmin(group_name, msg.sender);
 
@@ -220,7 +221,9 @@ contract SoftwareSupplyChain is EventDefinitions{
         string memory CID,
         string memory version,
         string[] memory dependencies
-    ) public checkReliabilityUser checkName(CID) controlBalance(1000){
+    ) public checkReliabilityUser  {
+        checkName(CID);
+        controlBalance(1000);
         projectManager.checkAdminProject(msg.sender, project_name);
         projectManager.checkValidProjectName(project_name);
 
@@ -309,7 +312,8 @@ contract SoftwareSupplyChain is EventDefinitions{
         emit Sold(amount);
     }
 
-    function buyReliability(uint256 reliability) public controlBalance(reliability * reliability_cost){
+    function buyReliability(uint256 reliability) public {
+        controlBalance(reliability * reliability_cost);
         developerManager.checkBuyReliability(msg.sender, reliability, max_reliability);
         
         sctContract.transferFrom(
