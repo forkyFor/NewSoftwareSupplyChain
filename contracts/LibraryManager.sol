@@ -20,6 +20,17 @@ contract LibraryManager {
     string[] public maliciousLibrariesCIDs;
     
 
+    //modifiers
+    function checkDependencies(string[] memory dependencies) public view{
+        for (uint256 i = 0; i < dependencies.length; i++) {
+            require(
+                bytes(getLibraryCID(dependencies[i])).length != 0, 
+                "One of the dependencies CID is wrong"
+            );
+        }
+    }
+
+    // end modifiers
 
     // Getter functions for Library attributes
     function getLibraryCID(string memory _CID) public view returns (string memory) {

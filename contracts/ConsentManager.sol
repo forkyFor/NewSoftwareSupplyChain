@@ -18,6 +18,14 @@ contract ConsentManager {
         return consentGiven[addr];
     }
 
+    function registerConsent(address addr, string memory _consent) public {
+        if (keccak256(abi.encodePacked(_consent)) == keccak256(abi.encodePacked("Y"))) {
+            setConsent(addr,true);
+        } else {
+            setConsent(addr,false);
+        }
+    }
+
     // set new reliability of a developer
     function setConsent(address addr, bool value) public {
         consentGiven[addr] = value;

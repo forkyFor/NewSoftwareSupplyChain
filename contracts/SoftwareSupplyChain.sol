@@ -27,11 +27,20 @@ contract SoftwareSupplyChain is EventDefinitions{
 
 
     //modifiers
-    modifier controlBalance() {
+    modifier controlBalance(uint256 value) {
+
         require(
-            sctContract.balanceOf(msg.sender) >= 3000,
-            "You need 3000 SCT to register as a developer"
+            sctContract.balanceOf(msg.sender) >= value,
+            "You don't have enough SCT"
         ); 
+        _;
+    }
+
+    modifier checkName(string memory name) {
+        require(
+            bytes(name).length != 0,
+            "The name can't be empty"
+        );
         _;
     }
 
@@ -69,17 +78,11 @@ contract SoftwareSupplyChain is EventDefinitions{
             reliability_cost = rel_cost;
     }
 
-    // Funzione per registrare il consenso
     function registerConsent(string memory _consent) public {
-        if (keccak256(abi.encodePacked(_consent)) == keccak256(abi.encodePacked("Y"))) {
-            consentManager.setConsent(msg.sender,true);
-        } else {
-            consentManager.setConsent(msg.sender,false);
-        }
+        consentManager.registerConsent(msg.sender,_consent);
     }
 
-    // Funzione per confermare la rimozione
-    function removeDeveloper() public controlBalance{
+    function removeDeveloper() public controlBalance(3000){
         developerManager.removeDeveloper(msg.sender);
         consentManager.setConsent(msg.sender,false);
         emit DeveloperRemoved(msg.sender);
@@ -91,7 +94,7 @@ contract SoftwareSupplyChain is EventDefinitions{
         emit verifyExistingEmail(msg.sender, _email);
     }
 
-    function responseVerifyExistingEmail(bool found, string memory _email) public controlBalance{
+    function responseVerifyExistingEmail(bool found, string memory _email) public controlBalance(3000){
         require(!found, "A developer with the same email already exists");
         require(bytes(_email).length != 0, "Insert a valid email");
 
@@ -102,15 +105,10 @@ contract SoftwareSupplyChain is EventDefinitions{
         emit DeveloperAdded(msg.sender, _email);
     }
 
-    function createGroup(string memory group_name) public checkReliabilityUser{
+    function createGroup(string memory group_name) public checkReliabilityUser checkName(group_name) controlBalance(2000){
         developerManager.checkDeveloperGroup(msg.sender);
-        require(bytes(group_name).length != 0, "The name can't be empty");
         groupManager.checkGroupExisting(group_name);
-        require(
-            sctContract.balanceOf(msg.sender) >= 2000,
-            "You need 2000 SCT to create a group"
-        );
-        
+
         developerManager.addGroupsDeveloperID(msg.sender, group_name);
         groupManager.addDeveloperGroup(group_name, msg.sender);
         
@@ -122,17 +120,10 @@ contract SoftwareSupplyChain is EventDefinitions{
     function createProject(
         string memory group_name,
         string memory project_name
-    ) public  checkReliabilityUser{
+    ) public  checkReliabilityUser checkName(project_name) controlBalance(2000){
         groupManager.checkNameGroup(group_name);
-        require(
-            bytes(project_name).length != 0,
-            "The project name can't be empty"
-        );
         groupManager.checkGroupAdmin(group_name, msg.sender);
-        require(
-            sctContract.balanceOf(msg.sender) >= 2000,
-            "You need 2000 SCT to create a project"
-        );
+
         if(projectManager.createProject(group_name,project_name,msg.sender)){
             projects_num++;
             sctContract.transferFrom(msg.sender, address(this), 2000);
@@ -179,17 +170,12 @@ contract SoftwareSupplyChain is EventDefinitions{
     function acceptGroupRequest(string memory group_name, address addr) public checkReliabilityUser{
         groupManager.checkAcceptGroupRequest(group_name, msg.sender, addr);
 
-
         developerManager.add_groups_map(addr, group_name);
         
         uint256 coeff;
-        for (
-            uint256 i = 0;
-            i < groupManager.getGroupDevelopers(group_name).length;
-            i++
-        ) {
+        for (uint256 i = 0; i < groupManager.getGroupDevelopers(group_name).length; i++) {
+            
             address idDev = developerManager.getDeveloperID(groupManager.getGroupDevelopers(group_name)[i]);
-
             uint256 adminCoeff = groupManager.getAdminCoeff(group_name, idDev);
 
             if (developerManager.getDeveloperReliability(addr) >= (total_developers_reliability / devs_num) * 2) {
@@ -198,28 +184,15 @@ contract SoftwareSupplyChain is EventDefinitions{
                 coeff = 1 * adminCoeff;
             }
 
-            developerManager.setDeveloperReliability(
-                idDev,
-                coeff,
-                true
-            );
-            addReliabilityAndTokens(
-                idDev,
-                coeff
-            );
-
+            developerManager.setDeveloperReliability(idDev,coeff,true);
+            addReliabilityAndTokens(idDev,coeff);
         }
 
         uint256 value;
-        if (
-            developerManager.getDeveloperReliability(msg.sender) >=
-            (total_developers_reliability / devs_num) * 2
+        if (developerManager.getDeveloperReliability(msg.sender) >= (total_developers_reliability / devs_num) * 2
         ) {
             value = 2;
-        } else if (
-            developerManager.getDeveloperReliability(msg.sender) >=
-            total_developers_reliability / devs_num
-        ) {
+        } else {
            value = 1;
         }
 
@@ -247,29 +220,18 @@ contract SoftwareSupplyChain is EventDefinitions{
         string memory CID,
         string memory version,
         string[] memory dependencies
-    ) public checkReliabilityUser{
+    ) public checkReliabilityUser checkName(CID) controlBalance(1000){
         projectManager.checkAdminProject(msg.sender, project_name);
         projectManager.checkValidProjectName(project_name);
-        require(bytes(CID).length != 0, "The CID can't be empty");
 
+    
         if (bytes(dependencies[0]).length != 0) {
-            for (uint256 i = 0; i < dependencies.length; i++) {
-                require(
-                    bytes(libraryManager.getLibraryCID(dependencies[i])).length != 0, 
-                    "One of the dependencies CID is wrong"
-                );
-            }
+            libraryManager.checkDependencies(dependencies);
         }
+
         require(
-            !(bytes(projectManager.getLibraryVersionCID(project_name,version))
-                .length !=
-                0 ||
-                bytes(libraryManager.getLibraryCID(CID)).length != 0),
+            !(bytes(projectManager.getLibraryVersionCID(project_name,version)).length != 0 || bytes(libraryManager.getLibraryCID(CID)).length != 0),
             "The same version already exists"
-        );
-        require(
-            sctContract.balanceOf(msg.sender) >= 1000,
-            "You need 1000 SCT to add a library version to a project"
         );
 
         uint256 len = groupManager.getGroupDevelopers(projectManager.getProjectGroup(project_name)).length;
@@ -291,10 +253,8 @@ contract SoftwareSupplyChain is EventDefinitions{
 
     function voteDeveloper(address developer) public checkReliabilityUser{
         require(msg.sender != developer, "You can't vote for yourself");
-        developerManager.checkVoteDeveloper(msg.sender, developer);        
-        developerManager.setDeveloperReliability(developer, 10,true);
+        developerManager.voteDeveloper(msg.sender, developer, 10, true);
         addReliabilityAndTokens(developer, 10);
-        developerManager.vote_developer(msg.sender, developer);
     }
 
     function reportDeveloper(address developer) public checkReliabilityUser{
@@ -349,13 +309,8 @@ contract SoftwareSupplyChain is EventDefinitions{
         emit Sold(amount);
     }
 
-    function buyReliability(uint256 reliability) public {
+    function buyReliability(uint256 reliability) public controlBalance(reliability * reliability_cost){
         developerManager.checkBuyReliability(msg.sender, reliability, max_reliability);
-        require(
-            balanceOf(msg.sender) >= reliability * reliability_cost,
-            "You don't have enough SCT"
-        );       
-        
         
         sctContract.transferFrom(
             msg.sender,

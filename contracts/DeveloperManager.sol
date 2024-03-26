@@ -145,6 +145,12 @@ contract DeveloperManager  {
         return developers[addr].voted[developer] == 0;
     }
 
+    
+    function voteDeveloper(address addr, address developer, uint256 reliability, bool cond) public {
+        checkVoteDeveloper(addr, developer);        
+        setDeveloperReliability(developer, reliability, cond);
+        vote_developer(addr, developer);
+    }
 
     function checkDeveloperRegistered(address addr) public view returns (bool){
         require(
