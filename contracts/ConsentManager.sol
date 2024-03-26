@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../contracts/StructDefinitions.sol";
 import "../ERC20/SupplyChainToken.sol";
 
-contract ConsentManager is StructDefinitions {
+contract ConsentManager {
 
 
     mapping(address => bool) public consentGiven;

@@ -1,10 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../contracts/StructDefinitions.sol";
-import "../ERC20/SupplyChainToken.sol";
 
-contract ProjectManager is StructDefinitions {
+contract ProjectManager {
+
+    struct Project {
+        string name;
+        address admin;
+        string[] library_versions;
+        mapping(string => string) library_versions_map;
+        string last_version;
+        string group;
+    }
+
     mapping(string => Project) private projects;
 
 

@@ -75,11 +75,6 @@ def deploy_contract(name: str, path: str, *params):
 
 
 
-"""Deploy the StructDefinitions contract"""
-struct_manager_abi, struct_manager_address  = deploy_contract(
-    "StructDefinitions", "/contracts")
-print(f"StructDefinitions contract address: {struct_manager_address}")
-
 """Deploy the EventDefinitions contract"""
 event_manager_abi, event_manager_address  = deploy_contract("EventDefinitions", "/contracts")
 print(f"EventDefinitions deployed")

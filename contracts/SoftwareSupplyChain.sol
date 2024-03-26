@@ -11,7 +11,7 @@ import "./contracts/ConsentManager.sol";
 import "./contracts/LibraryManager.sol";
 
 
-contract SoftwareSupplyChain is StructDefinitions, EventDefinitions{
+contract SoftwareSupplyChain is EventDefinitions{
     address public contract_owner;
     uint256 public devs_num;
     uint256 public groups_num;

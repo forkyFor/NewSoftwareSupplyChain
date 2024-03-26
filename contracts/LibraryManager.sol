@@ -1,14 +1,24 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../contracts/StructDefinitions.sol";
 import "../ERC20/SupplyChainToken.sol";
 
-contract LibraryManager is StructDefinitions {
+contract LibraryManager {
+
+    struct Library {
+        string CID;
+        string version;
+        string project;
+        uint256 reliability;
+        address[] developed_by;
+        string[] dependencies;
+    }
+
     
     mapping(string => Library) public libraries;
     mapping(string => address) public libraryMalicious;
     string[] public maliciousLibrariesCIDs;
+    
 
 
     // Getter functions for Library attributes
