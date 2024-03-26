@@ -17,7 +17,6 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions{
     uint256 public projects_num;
     uint256 public libraries_num;
     uint256 public reliability_cost;
-    string[] public maliciousLibrariesCIDs;
 
     uint256 public fees_paid;
     uint256 public total_developers_reliability;
@@ -25,8 +24,6 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions{
     uint256 public max_reliability;
     
     mapping(string => DeveloperGroup) public dev_groups;
-    mapping(string => Library) private libraries;
-    mapping(string => address) public libraryMalicious;
 
     function removeStringFromArray(
         uint256 index,
@@ -75,16 +72,18 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions{
     DeveloperManager private developerManager;
     ProjectManager private projectManager;
     ConsentManager private consentManager;
+    LibraryManager private libraryManager;
     EventDefinitions private eventDefinitions;
 
     SupplyChainToken private sctContract;
 
     constructor(address sctAddress, uint256 max_rel, uint256 rel_cost, 
-        address _developerManager,address _eventManager, address _consentManager, address _projectManager) {
+        address _developerManager,address _eventManager, address _consentManager, address _projectManager, address _libraryManager) {
             developerManager = DeveloperManager(_developerManager);
             eventDefinitions = EventDefinitions(_eventManager);
             consentManager = ConsentManager(_consentManager);
             projectManager = ProjectManager(_projectManager);
+            libraryManager = LibraryManager(_libraryManager);
             sctContract = SupplyChainToken(sctAddress);
             contract_owner = msg.sender;
             max_reliability = max_rel;
@@ -176,25 +175,21 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions{
     }
 
     function reportLibraryMalicious(string memory _CID) public {
-        require(bytes(libraries[_CID].CID).length != 0, "Library does not exist");
-        require(libraryMalicious[_CID] == address(0), "Library already reported");
-
-        libraryMalicious[_CID] = msg.sender;
-        maliciousLibrariesCIDs.push(_CID); 
+        libraryManager.reportLibraryMalicious(_CID,msg.sender);
     }
 
     function getMaliciousLibraries() public view returns (string[] memory) {
-        return maliciousLibrariesCIDs;
+        libraryManager.getMaliciousLibraries();
     }
 
     function resolveLibraryReport(string memory _CID, bool _isMalicious) public {
-    require(dev_groups[projectManager.getProjectGroup(libraries[_CID].project)].admin == msg.sender, "Only admin can resolve reports");
-    require(libraryMalicious[_CID] != address(0), "Library not reported");
+        require(dev_groups[projectManager.getProjectGroup(libraryManager.getLibraryProject(_CID))].admin == msg.sender, "Only admin can resolve reports");
+        libraryManager.checkLibraryReport(_CID);
 
-        address reporter = libraryMalicious[_CID];
+        address reporter = libraryManager.getLibraryMalicious(_CID);
         if (_isMalicious) {
             // Decrease the reliability of the library and encrease that of the reporter
-            libraries[_CID].reliability -= 10;
+            libraryManager.lessLibraryReliability(_CID,10);
             developerManager.setDeveloperReliability(reporter, 10, true);
             sctContract.transfer(reporter, 100); 
         } else {
@@ -202,18 +197,7 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions{
             developerManager.setDeveloperReliability(reporter, 10, false);
         }
 
-        // remove libraries
-        libraryMalicious[_CID] = address(0);
-
-        int256 index = -1;
-        for (uint256 i = 0; i < maliciousLibrariesCIDs.length; i++) {
-            if (keccak256(abi.encodePacked(maliciousLibrariesCIDs[i])) == keccak256(abi.encodePacked(_CID))) {
-                index = int256(i);
-                break;
-            }
-        }
-        maliciousLibrariesCIDs[uint256(index)] = maliciousLibrariesCIDs[maliciousLibrariesCIDs.length - 1];
-        maliciousLibrariesCIDs.pop();
+        libraryManager.resolveLibraryReport(_CID);
     }
 
     function requestGroupAccess(string memory group_name) public checkReliabilityUser {
@@ -342,7 +326,7 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions{
         if (bytes(dependencies[0]).length != 0) {
             for (uint256 i = 0; i < dependencies.length; i++) {
                 require(
-                    bytes(libraries[dependencies[i]].CID).length != 0,
+                    bytes(libraryManager.getLibraryCID(dependencies[i])).length != 0, 
                     "One of the dependencies CID is wrong"
                 );
             }
@@ -351,30 +335,29 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions{
             !(bytes(projectManager.getLibraryVersionCID(project_name,version))
                 .length !=
                 0 ||
-                bytes(libraries[CID].CID).length != 0),
+                bytes(libraryManager.getLibraryCID(CID)).length != 0),
             "The same version already exists"
         );
         require(
             sctContract.balanceOf(msg.sender) >= 1000,
             "You need 1000 SCT to add a library version to a project"
         );
-        Library storage lib = libraries[CID];
-        lib.CID = CID;
-        lib.version = version;
-        lib.dependencies = dependencies;
-        lib.project = project_name;
 
         uint256 len = dev_groups[projectManager.getProjectGroup(project_name)]
                     .group_developers.length;
-        for (uint256 i = 0; i < len; i++) {
-            lib.developed_by.push(developerManager.getDeveloperID( 
-                dev_groups[projectManager.getProjectGroup(project_name)]
-                    .group_developers[i]
-            ));
-        }
 
         uint256 rel = computeReliability(CID);
-        lib.reliability = rel;
+        libraryManager.addLibrary(project_name, CID, version, dependencies, rel);
+        
+        for (uint256 i = 0; i < len; i++) {
+            libraryManager.setLibraryDevelopedBy(CID,
+                developerManager.getDeveloperID( 
+                dev_groups[projectManager.getProjectGroup(project_name)]
+                    .group_developers[i]
+                ));
+        }
+
+        
         total_libraries_reliability += rel;
         libraries_num++;
         projectManager.checkReliabilityUser(project_name, CID, version);
@@ -529,31 +512,28 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions{
             uint256 reliability
         )
     {
-        return (
-            libraries[CID].version,
-            libraries[CID].project,
-            libraries[CID].dependencies,
-            computeReliability(CID)
-        );
+        (string memory version, string memory project, string[] memory dependencies)= libraryManager.getLibraryInformation(CID);
+        reliability = computeReliability(CID);
+        return (version, project, dependencies, reliability);
     }
 
     function getLibraryInformationWithLevel(string memory CID) public checkReliabilityUser{
 
         
         uint256 rel = computeReliability(CID);
-        uint256 rel_diff = rel - libraries[CID].reliability;
-        libraries[CID].reliability = rel;
+        uint256 rel_diff = rel - libraryManager.getLibraryReliability(CID);
+        libraryManager.setLibraryReliability(CID,rel);
         total_libraries_reliability += rel_diff;
         for (
             uint256 i = 0;
             i <
-            dev_groups[projectManager.getProjectGroup(libraries[CID].project)]
+            dev_groups[projectManager.getProjectGroup(libraryManager.getLibraryProject(CID))]
                 .group_developers
                 .length;
             i++
         ) {
             address valueReturned = developerManager.getLibraryInformationWithLevel(
-                dev_groups[projectManager.getProjectGroup(libraries[CID].project)]
+                dev_groups[projectManager.getProjectGroup(libraryManager.getLibraryProject(CID))]
                     .group_developers[i]
             );
             if(valueReturned != address(0)){
@@ -573,10 +553,9 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions{
         } else {
             level = "Very High";
         }
+        (string memory version, string memory project, string[] memory dependencies)= libraryManager.getLibraryInformation(CID);
         emit LibraryInfo(
-            libraries[CID].version,
-            libraries[CID].project,
-            libraries[CID].dependencies,
+            version, project, dependencies,
             rel,
             level,
             reliability_mean
@@ -586,7 +565,7 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions{
     function computeReliability(
         string memory CID
     ) private view returns (uint256) {
-        address[] memory devs = libraries[CID].developed_by;
+        address[] memory devs = libraryManager.getLibraryDevelopedBy(CID);
         uint256 len = devs.length;
         uint256 sum = 0;
         for (uint256 i = 0; i < len; i++) {
@@ -595,7 +574,7 @@ contract SoftwareSupplyChain is StructDefinitions, EventDefinitions{
                 return 0;
             }
             if (
-                developerManager.getDeveloperID(devs[i]) == projectManager.getProjectAdmin(libraries[CID].project)
+                developerManager.getDeveloperID(devs[i]) == projectManager.getProjectAdmin(libraryManager.getLibraryProject(CID))
             ) {
                 sum += 2 * developerReliability;
             } else {
