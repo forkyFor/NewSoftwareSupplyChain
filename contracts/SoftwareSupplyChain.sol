@@ -23,6 +23,7 @@ contract SoftwareSupplyChain is EventDefinitions{
     uint256 public total_developers_reliability;
     uint256 public total_libraries_reliability;
     uint256 public max_reliability;
+    mapping(address => uint256) lastReliabilityRequest;
 
     //modifiers
     function controlBalance(uint256 value) public {
@@ -43,6 +44,9 @@ contract SoftwareSupplyChain is EventDefinitions{
         uint256 developerReliability = developerManager.getDeveloperReliability(msg.sender);
         require(developerReliability >= (total_developers_reliability / devs_num), "You're not authorized to execute this operation");
     }
+
+
+    // end modifiers
     
     DeveloperManager private developerManager;
     ProjectManager private projectManager;
@@ -316,6 +320,7 @@ contract SoftwareSupplyChain is EventDefinitions{
     }
 
     function buyReliability(uint256 reliability) public {
+        require(block.timestamp - lastReliabilityRequest[msg.sender] > 1 days, "You can request reliability only once a day.");
         controlBalance(reliability * reliability_cost);
         developerManager.checkBuyReliability(msg.sender, reliability, max_reliability);
         
@@ -327,6 +332,7 @@ contract SoftwareSupplyChain is EventDefinitions{
         
         total_developers_reliability += reliability;
         fees_paid += reliability * reliability_cost;
+        lastReliabilityRequest[msg.sender] = block.timestamp;
     }
 
     function balanceOf(address token_owner) public view returns (uint256) {
