@@ -456,19 +456,16 @@ contract SoftwareSupplyChain is EventDefinitions{
         uint256 sum = 0;
         for (uint256 i = 0; i < len; i++) {
             uint256 developerReliability = developerManager.getDeveloperReliability(devs[i]);
-            if (developerReliability < 0) {
-                return 0;
-            }
-            if (
-                developerManager.getDeveloperID(devs[i]) == projectManager.getProjectAdmin(libraryManager.getLibraryProject(CID))
-            ) {
-                sum += 2 * developerReliability;
-            } else {
-                sum += developerReliability;
+            if (developerReliability >= 0) {
+                if (developerManager.getDeveloperID(devs[i]) == projectManager.getProjectAdmin(libraryManager.getLibraryProject(CID))) {
+                    sum += 2 * developerReliability;
+                } else {
+                    sum += developerReliability;
+                }
             }
         }
 
-        return sum / len;
+        return len > 0 ? sum / len : 0;
     }
 
 
