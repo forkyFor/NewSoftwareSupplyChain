@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../ERC20/SupplyChainToken.sol";
 
 contract ConsentManager {
 
@@ -18,10 +17,14 @@ contract ConsentManager {
         return consentGiven[addr];
     }
 
+    event registerConsentLog(address indexed id, string result);
+
     function registerConsent(address addr, string memory _consent) public {
         if (keccak256(abi.encodePacked(_consent)) == keccak256(abi.encodePacked("Y"))) {
+            emit registerConsentLog(msg.sender, "true");
             setConsent(addr,true);
         } else {
+            emit registerConsentLog(msg.sender, "false");
             setConsent(addr,false);
         }
     }

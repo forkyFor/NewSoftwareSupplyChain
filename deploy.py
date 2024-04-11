@@ -81,14 +81,19 @@ print(f"EventDefinitions deployed")
 
 
 developer_manager_abi, developer_manager_address = deploy_contract("DeveloperManager", "/contracts")
+set_key(dotenv_file, "developer_manager_address", developer_manager_address)
 print(f"DeveloperManager deployed")
 consent_manager_abi, consent_manager_address = deploy_contract("ConsentManager", "/contracts")
+set_key(dotenv_file, "consent_manager_address", consent_manager_address)
 print(f"ConsentManager deployed")
 group_manager_abi, group_manager_address = deploy_contract("GroupManager", "/contracts")
+set_key(dotenv_file, "group_manager_address", group_manager_address)
 print(f"GroupManager deployed")
 project_manager_abi, project_manager_address = deploy_contract("ProjectManager", "/contracts")
+set_key(dotenv_file, "project_manager_address", project_manager_address)
 print(f"ProjectManager deployed")
 library_manager_abi, library_manager_address = deploy_contract("LibraryManager", "/contracts")
+set_key(dotenv_file, "library_manager_address", library_manager_address)
 print(f"LibraryManager deployed")
 
 """Deploy the SupplyChainToken contract"""

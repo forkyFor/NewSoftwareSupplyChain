@@ -4,8 +4,12 @@
 2. Git https://git-scm.com/
 3. Ganache https://trufflesuite.com/ganache/
 4. Node.js https://nodejs.org/en 
-5. npm-remote-ls https://www.npmjs.com/package/npm-remote-ls
-6. An account on https://web3.storage/
+5. **npm-remote-ls**: This can be installed using npm. After installing Node.js, run `npm install -g npm-remote-ls` to install.
+6. **Web3.storage Account**: Create an account at [Web3.storage](https://web3.storage) to obtain an IPFS token.
+7. **Solidity Compiler (solc-js)**: Install the Solidity compiler for JavaScript (`solc-js`) to compile Solidity smart contracts. Run the following command:
+    ```bash
+    npm install -g solc
+    ```
 
 ### Start
 First, create a workspace on Ganache.

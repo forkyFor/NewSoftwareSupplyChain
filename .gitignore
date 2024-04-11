@@ -7,3 +7,5 @@ ganache.txt
 local/
 accounts/accounts.txt
 middleware/node_modules
+performance_test/node_modules
+performance_test/build

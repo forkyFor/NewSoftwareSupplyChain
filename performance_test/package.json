@@ -1,0 +1,22 @@
+{
+    "name": "supply-chain-smart-contract",
+    "version": "1.0.0",
+    "description": "Smart Contract testing",
+    "main": "index.js",
+    "scripts": {
+        "start": "node index.js"
+    },
+    "author": "",
+    "license": "MIT",
+    "devDependencies": {
+        "@openzeppelin/test-helpers": "^0.5.15",
+        "chai": "^4.3.4",
+        "ganache-cli": "^6.12.2",
+        "mocha": "^9.2.2",
+        "solc": "^0.8.0",
+        "web3": "^1.6.0"
+    },
+    "dependencies": {
+        "dotenv": "^16.4.5"
+    }
+}
