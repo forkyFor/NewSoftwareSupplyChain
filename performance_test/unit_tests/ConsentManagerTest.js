@@ -1,4 +1,6 @@
-function createConsentManager(web3, abi, contractAddress) {
+function testModule(web3, abi, sampleAddress) {
+    
+    const contractAddress = process.env.consent_manager_address;
     const consentManager = new web3.eth.Contract(abi, contractAddress);
 
     async function registerConsent(address, consent) {
@@ -19,11 +21,12 @@ function createConsentManager(web3, abi, contractAddress) {
             console.error('Error checking consent:', error);
         }
     }
+    
+    registerConsent(sampleAddress, 'Y'); // Registering consent
 
-    return {
-        registerConsent,
-        checkConsent
-    };
+    setTimeout(() => {
+        checkConsent(sampleAddress); // Checking consent
+      }, 3000);
 }
 
-module.exports = createConsentManager;
+module.exports = testModule;
