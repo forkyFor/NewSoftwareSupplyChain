@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../ERC20/SupplyChainToken.sol";
 
 contract GroupManager {
 
@@ -106,7 +105,7 @@ contract GroupManager {
     function getAdminCoeff(
         string memory group_name,
         address idDev
-    ) public returns (uint256){
+    ) public view returns (uint256){
         uint256 adminCoeff;
         if (dev_groups[group_name].admin == idDev) {
             adminCoeff = 2;

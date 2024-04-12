@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../ERC20/SupplyChainToken.sol";
 
 contract DeveloperManager  {
 
@@ -152,7 +151,7 @@ contract DeveloperManager  {
         vote_developer(addr, developer);
     }
 
-    function checkDeveloperRegistered(address addr) public view returns (bool){
+    function checkDeveloperRegistered(address addr) public view{
         require(
             getDeveloperID(addr) != addr,
             "You are already registered as a developer"
