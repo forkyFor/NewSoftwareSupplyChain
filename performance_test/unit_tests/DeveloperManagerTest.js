@@ -1,4 +1,4 @@
-function createDeveloperManagerTest(web3, abi, contractAddress, sampleDeveloper) {
+function testModule(web3, abi, contractAddress, sampleDeveloper) {
     const developerManager = new web3.eth.Contract(abi, contractAddress);
 
     async function registerDeveloper() {
@@ -26,4 +26,4 @@ function createDeveloperManagerTest(web3, abi, contractAddress, sampleDeveloper)
 
 }
 
-module.exports = createDeveloperManagerTest;
+module.exports = testModule;

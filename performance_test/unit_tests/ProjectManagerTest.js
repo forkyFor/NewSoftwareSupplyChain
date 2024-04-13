@@ -1,4 +1,4 @@
-function createProjectManagerTest(web3, abi, contractAddress, sampleProject, adminAddress, group) {
+function testModule(web3, abi, contractAddress, sampleProject, adminAddress, group) {
     const projectManager = new web3.eth.Contract(abi, contractAddress);
 
     async function addProject() {
@@ -15,4 +15,4 @@ function createProjectManagerTest(web3, abi, contractAddress, sampleProject, adm
 
 }
 
-module.exports = createProjectManagerTest;
+module.exports = testModule;

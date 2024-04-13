@@ -26,14 +26,14 @@ contract SoftwareSupplyChain is EventDefinitions{
     mapping(address => uint256) lastReliabilityRequest;
 
     //modifiers
-    function controlBalance(uint256 value) public {
+    function controlBalance(uint256 value) public view{
         require(
             sctContract.balanceOf(msg.sender) >= value,
             "You don't have enough SCT"
         ); 
     }
 
-    function checkName(string memory name) public {
+    function checkName(string memory name) public view{
         require(
             bytes(name).length != 0,
             "The name can't be empty"
@@ -133,11 +133,11 @@ contract SoftwareSupplyChain is EventDefinitions{
     }
 
     function reportLibraryMalicious(string memory _CID) public {
-        libraryManager.reportLibraryMalicious(_CID,msg.sender);
+       return libraryManager.reportLibraryMalicious(_CID,msg.sender);
     }
 
     function getMaliciousLibraries() public view returns (string[] memory) {
-        libraryManager.getMaliciousLibraries();
+        return libraryManager.getMaliciousLibraries();
     }
 
     function resolveLibraryReport(string memory _CID, string memory _isMalicious) public {
@@ -386,13 +386,13 @@ contract SoftwareSupplyChain is EventDefinitions{
     function getProjectVersions(
         string memory project_name
     ) public view returns (string[] memory) {
-        projectManager.getLibraryVersions(project_name);
+        return projectManager.getLibraryVersions(project_name);
     }
 
     function getProjectLastVersion(
         string memory project_name
     ) public view returns (string memory) {
-        projectManager.getProjectLastVersion(project_name);
+        return projectManager.getProjectLastVersion(project_name);
     }
 
     function getLibraryInformation(

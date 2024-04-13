@@ -1,4 +1,4 @@
-function createLibraryManagerTest(web3, abi, contractAddress, sampleLibraryCID, project, version, dependencies) {
+function testModule(web3, abi, contractAddress, sampleLibraryCID, project, version, dependencies) {
     const libraryManager = new web3.eth.Contract(abi, contractAddress);
 
     async function addLibrary() {
@@ -25,4 +25,4 @@ function createLibraryManagerTest(web3, abi, contractAddress, sampleLibraryCID, 
 
 }
 
-module.exports = createLibraryManagerTest;
+module.exports = testModule;

@@ -1,4 +1,4 @@
-function createGroupManagerTest(web3, abi, contractAddress, sampleGroup, adminAddress) {
+function testModule(web3, abi, contractAddress, sampleGroup, adminAddress) {
     const groupManager = new web3.eth.Contract(abi, contractAddress);
 
     async function addGroup() {
@@ -25,4 +25,4 @@ function createGroupManagerTest(web3, abi, contractAddress, sampleGroup, adminAd
 
 }
 
-module.exports = createGroupManagerTest;
+module.exports = testModule;
