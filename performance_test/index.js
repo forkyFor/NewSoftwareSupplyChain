@@ -3,24 +3,25 @@ const fs = require('fs');
 const path = require('path');
 const solc = require('solc');
 require('dotenv').config({ path: '../.env' });
-const createConsentManager = require('./consentTest');
 
 // Set up web3 provider
 var web3 = new Web3(new Web3.providers.WebsocketProvider(process.env.BLOCKCHAIN_ADDRESS_WS));
-const sampleAddress = '....'; // Replace with actual Ethereum address
+const sampleAddress = '...'; // Replace with actual Ethereum address
+const contract_main = 'SoftwareSupplyChain'
+const contracts = ['ConsentManager','DeveloperManager','GroupManager','LibraryManager','ProjectManager']
+
 
 // Compile the Solidity contract
-function compileContract() {
-    const contractPath = path.resolve(__dirname, '../contracts', 'ConsentManager.sol');
-    const contractSource = fs.readFileSync(contractPath, 'utf8');
+function compileContract(contract) {
 
-    const input = {
+    const contractSol = contract + '.sol';
+    const contractJSON = contract + '.json';
+    let contractPath = path.resolve(__dirname, '../contracts', contractSol);
+    let contractSource = fs.readFileSync(contractPath, 'utf8');
+
+    let input = {
         language: 'Solidity',
-        sources: {
-            'ConsentManager.sol': {
-                content: contractSource,
-            },
-        },
+        sources: {},
         settings: {
             outputSelection: {
                 '*': {
@@ -30,21 +31,68 @@ function compileContract() {
         }
     };
 
-    const output = JSON.parse(solc.compile(JSON.stringify(input)));
-    fs.writeFileSync(path.resolve(__dirname, './build/ConsentManager.json'), JSON.stringify(output.contracts['ConsentManager.sol'].ConsentManager));
-    return output.contracts['ConsentManager.sol'].ConsentManager;
+    
+    if(contract == "SoftwareSupplyChain"){        
+        contractPath = path.resolve(__dirname, '../contracts', contract_main + ".sol");
+        contractSource = fs.readFileSync(contractPath, 'utf8');
+        input.sources[contract_main + ".sol"] = {
+            content: contractSource,
+        };
+    }else{
+
+        input.sources[contractSol] = {
+            content: contractSource,
+        };
+    
+    }
+
+    
+    const output = JSON.parse(solc.compile(JSON.stringify(input), { import: findImports }));
+    console.log(output);
+    fs.writeFileSync(path.resolve(__dirname, './build/' + contractJSON), JSON.stringify(output.contracts[contractSol][contract]));
+    if (output.errors) {
+        output.errors.forEach(err => {
+            console.error(err.formattedMessage);
+        });
+    }
+    
+    const compiledContract = output.contracts[contractSol][contract];
+    return compiledContract;
 }
 
-const { abi, evm } = compileContract();
-const contractAddress = process.env.consent_manager_address;
+function findImports(importPath) {
 
-// Create contract instance
-const consentManager = createConsentManager(web3, abi, contractAddress);
-consentManager.registerConsent(sampleAddress, 'Y'); // Registering consent
+    // Normalize the path to prevent errors in different OS environments
+    const fullPath = path.resolve("../", importPath);
 
-setTimeout(() => {
-    consentManager.checkConsent(sampleAddress); // Checking consent
-  }, 3000);
+    try {
+        if (fs.existsSync(fullPath)) {
+            return { contents: fs.readFileSync(fullPath, 'utf8') };
+        } else {
+            return { error: 'File not found: ' + fullPath };
+        }
+    } catch (error) {
+        return { error: error.message };
+    }
+}
+
+function compilatingContract(contract){
+    let compiledContract = compileContract(contract);
+    let abi = compiledContract.abi;
+    try {
+        const testModule = require(`./unit_tests/${contract}Test`);
+        testModule(web3, abi, sampleAddress);
+    } catch (error) {
+        console.error(`Error loading test module for ${contract}:`, error);
+    }
+}
+
+
+contracts.forEach(contract => {
+    compilatingContract(contract);
+});
+
+compilatingContract(contract_main);
 
 
 
