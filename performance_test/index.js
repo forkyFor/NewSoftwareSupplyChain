@@ -61,7 +61,6 @@ function compileContract(contract) {
 
     
     const output = JSON.parse(solc.compile(JSON.stringify(input), { import: findImports }));
-    console.log(output);
     fs.writeFileSync(path.resolve(__dirname, './build/' + contractJSON), JSON.stringify(output.contracts[contractSol][contract]));
     if (output.errors) {
         output.errors.forEach(err => {
