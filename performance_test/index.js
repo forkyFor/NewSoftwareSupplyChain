@@ -137,13 +137,3 @@ setTimeout(async () => {
         compilatingContract(contract);
     })
 }, 5000);
-
-
-
-
-
-
-
-
-
-

@@ -1,3 +1,10 @@
+const fs = require('fs');
+const logFile = fs.openSync('./test_log.txt', 'a');
+
+const originalLog = console.log;
+const originalError = console.error;
+console.log = (...args) => { fs.writeSync(logFile, `${args.join(' ')}\n`); originalLog(...args); };
+console.error = (...args) => { fs.writeSync(logFile, `${args.join(' ')}\n`); originalError(...args); };
 function testModule(web3, abi, sampleAddress) {
     
     const contractAddress = process.env.consent_manager_address;
@@ -7,9 +14,9 @@ function testModule(web3, abi, sampleAddress) {
         const accounts = await web3.eth.getAccounts();
         try {
             const receipt = await consentManager.methods.registerConsent(address, consent).send({ from: accounts[0] });
-            console.log('Transaction receipt:', receipt);
+            console.log('Transaction receipt:', JSON.stringify(receipt));
         } catch (error) {
-            console.error('Error registering consent:', error);
+            console.error('Error registering consent:', JSON.stringify(error));
         }
     }
 
@@ -18,7 +25,7 @@ function testModule(web3, abi, sampleAddress) {
             const isConsented = await consentManager.methods.getConsent(address).call();
             console.log(`Consent status for ${address}: ${isConsented}`);
         } catch (error) {
-            console.error('Error checking consent:', error);
+            console.error('Error checking consent:', JSON.stringify(error));
         }
     }
     
@@ -30,3 +37,4 @@ function testModule(web3, abi, sampleAddress) {
 }
 
 module.exports = testModule;
+
