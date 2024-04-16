@@ -1,4 +1,4 @@
-function testModule(web3, abi, contractAddress, sampleGroup, adminAddress) {
+function testModule(web3, abi, contractAddress, adminAddress, sampleGroup ) {
     const groupManager = new web3.eth.Contract(abi, contractAddress);
 
     async function addGroup() {
