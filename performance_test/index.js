@@ -8,7 +8,7 @@ require('dotenv').config({ path: '../.env' });
 var web3 = new Web3(new Web3.providers.WebsocketProvider(process.env.BLOCKCHAIN_ADDRESS_WS));
 const sampleAddress = '0x0242000F2df854b0242C82eEF58deB849b77dF28'; // Replace with actual Ethereum address
 const contract_main = 'SoftwareSupplyChain'
-const contracts = ['ConsentManager','DeveloperManager','GroupManager','LibraryManager','ProjectManager']
+const contracts = ['ConsentManager','DeveloperManager','GroupManager','LibraryManager','ProjectManager', 'DB']
 
 // insert accounts test
 let accounts = [
@@ -29,8 +29,7 @@ function compileContract(contract) {
 
     const contractSol = contract + '.sol';
     const contractJSON = contract + '.json';
-    let contractPath = path.resolve(__dirname, '../contracts', contractSol);
-    let contractSource = fs.readFileSync(contractPath, 'utf8');
+    
 
     let input = {
         language: 'Solidity',
@@ -52,7 +51,8 @@ function compileContract(contract) {
             content: contractSource,
         };
     }else{
-
+        let contractPath = path.resolve(__dirname, '../contracts', contractSol);
+        let contractSource = fs.readFileSync(contractPath, 'utf8');
         input.sources[contractSol] = {
             content: contractSource,
         };
@@ -91,8 +91,13 @@ function findImports(importPath) {
 let sender = accounts[Math.floor(Math.random() * accounts.length)];
 
 function compilatingContract(contract){
-    let compiledContract = compileContract(contract);
-    let abi = compiledContract.abi;
+    
+    let abi;
+    if(contract !== "DB"){
+        let compiledContract = compileContract(contract);
+        abi = compiledContract.abi;
+    }
+    
     try {
         
         let testModule;
@@ -108,6 +113,10 @@ function compilatingContract(contract){
             }
             case "GroupManager":{
                 testModule(web3, abi, sampleAddress, sender, "Developers");
+                break;
+            }
+            case "DB":{
+                testModule(sender);
                 break;
             }
             case "SoftwareSupplyChain":{
